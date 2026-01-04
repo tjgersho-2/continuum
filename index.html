@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Continuum — Algorithmic Sculpture Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        :root {
+            --bg-primary: #08080a;
+            --bg-secondary: #0e0e12;
+            --bg-card: #141418;
+            --bg-input: #1a1a20;
+            --text-primary: #e8e8ec;
+            --text-secondary: #8888a0;
+            --text-muted: #4a4a5a;
+            --accent: #6366f1;
+            --accent-glow: #818cf8;
+            --accent-soft: rgba(99, 102, 241, 0.15);
+            --border: rgba(255,255,255,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; background: var(--bg-primary); color: var(--text-primary); font-family: 'Space Grotesk', sans-serif; font-weight: 300; overflow-x: hidden; }
+        
+        /* Hide body scroll when result view is active */
+        body.viewer-active { overflow: hidden; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+        ::-webkit-scrollbar-corner { background: transparent; }
+        
+        /* Firefox scrollbar */
+        * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+        
+        .app { min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Header */
+        header { position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100; background: linear-gradient(to bottom, rgba(8,8,10,0.98) 0%, transparent 100%); }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand-icon { width: 28px; height: 28px; border: 1.5px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .brand-icon svg { width: 14px; height: 14px; stroke: var(--accent); fill: none; }
+        .brand h1 { font-weight: 400; font-size: 1rem; letter-spacing: 0.15em; text-transform: uppercase; }
+
+        /* Questionnaire */
+        .questionnaire-view { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 70px 16px 30px; transition: opacity 0.5s ease; }
+        .questionnaire-view.hidden { opacity: 0; pointer-events: none; position: absolute; }
+        .questionnaire-container { max-width: 600px; width: 100%; }
+        
+        .questionnaire-intro { text-align: center; margin-bottom: 36px; }
+        .questionnaire-intro h2 { font-weight: 400; font-size: 1.75rem; line-height: 1.3; margin-bottom: 12px; background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-glow) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .questionnaire-intro p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; max-width: 440px; margin: 0 auto; }
+
+        .questions-grid { display: flex; flex-direction: column; gap: 20px; }
+        
+        .question-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: all 0.3s ease; }
+        .question-block.answered { border-color: rgba(99, 102, 241, 0.4); }
+        .question-number { font-family: 'Space Mono', monospace; font-size: 0.55rem; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 6px; }
+        .question-text { font-size: 1rem; font-weight: 400; margin-bottom: 14px; line-height: 1.4; }
+
+        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .options-grid.three-col { grid-template-columns: repeat(3, 1fr); }
+        
+        .option-btn { padding: 12px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; min-height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+        .option-btn:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.15); color: var(--text-primary); }
+        .option-btn.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-glow); }
+        .option-btn .option-icon { font-size: 1.1rem; }
+        .option-btn .option-label { font-weight: 400; }
+
+        .generate-section { margin-top: 28px; text-align: center; }
+        .generate-btn { padding: 14px 40px; background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%); border: none; border-radius: 8px; color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; opacity: 0.3; pointer-events: none; }
+        .generate-btn.active { opacity: 1; pointer-events: auto; }
+        .generate-btn.active:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4); }
+
+        /* Result View */
+        .result-view { height: 100vh; display: none; flex-direction: column; overflow: hidden; }
+        .result-view.visible { display: flex; }
+
+        .viewer-section { position: relative; background: linear-gradient(180deg, #101014 0%, #0a0a0c 100%); flex: 1; min-height: 280px; touch-action: none; }
+        #canvas-container { width: 100%; height: 100%; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+        
+        .viewer-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--text-muted); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 16px; backdrop-filter: blur(10px); transition: opacity 0.5s; }
+        .viewer-hint.hidden { opacity: 0; pointer-events: none; }
+
+        /* Floating Control Toggles - Mobile */
+        .control-toggles { position: absolute; top: 60px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+        .control-toggle-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(14,14,18,0.95); border: 1px solid var(--border); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px); }
+        .control-toggle-btn:hover, .control-toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.1); }
+        .control-toggle-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; }
+
+        /* Control Panels */
+        .viewer-panel { position: absolute; z-index: 15; background: rgba(14,14,18,0.98); border: 1px solid var(--border); border-radius: 12px; padding: 14px; backdrop-filter: blur(20px); transition: all 0.3s ease; }
+        .viewer-panel.hidden { opacity: 0; pointer-events: none; transform: translateY(-10px); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .panel-title { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; }
+        .panel-close { width: 24px; height: 24px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+        .panel-close:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+        /* Material Panel */
+        .material-panel { top: 60px; right: 12px; }
+        .material-options { display: flex; gap: 8px; }
+        .material-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: all 0.2s ease; }
+        .material-btn:hover { transform: scale(1.1); }
+        .material-btn.selected { border-color: var(--accent); box-shadow: 0 0 12px rgba(99, 102, 241, 0.5); }
+        .material-btn.obsidian { background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0f 100%); }
+        .material-btn.chrome { background: linear-gradient(135deg, #e8e8e8 0%, #888 50%, #e8e8e8 100%); }
+        .material-btn.gold { background: linear-gradient(135deg, #ffd700 0%, #b8860b 50%, #ffd700 100%); }
+        .material-btn.bronze { background: linear-gradient(135deg, #cd7f32 0%, #8b4513 50%, #cd7f32 100%); }
+        .material-btn.iridescent { background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 33%, #a855f7 66%, #ff6b6b 100%); }
+
+        /* Lighting Panel */
+        .lighting-panel { top: 60px; left: 12px; width: 200px; }
+        .lighting-presets { display: flex; gap: 6px; margin-bottom: 12px; }
+        .preset-btn { flex: 1; padding: 7px 5px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.6rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .preset-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+        .preset-btn.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-glow); }
+        
+        .light-control { margin-bottom: 10px; }
+        .light-control:last-child { margin-bottom: 0; }
+        .light-control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .light-control-label { font-size: 0.65rem; color: var(--text-secondary); }
+        .light-control-value { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--accent-glow); }
+        
+        .light-slider { width: 100%; height: 4px; -webkit-appearance: none; appearance: none; background: var(--bg-input); border-radius: 2px; cursor: pointer; }
+        .light-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+        .light-slider::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+
+        /* Details Panel */
+        .details-panel { background: var(--bg-secondary); padding: 20px 16px; flex-shrink: 0; overflow-y: auto; max-height: 45vh; }
+        .details-panel::-webkit-scrollbar { width: 4px; }
+        .details-panel::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); }
+        .details-panel::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+        
+        .piece-header { margin-bottom: 16px; }
+        .piece-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+        .piece-title h2 { font-weight: 400; font-size: 1.3rem; }
+        .form-tag { font-family: 'Space Mono', monospace; font-size: 0.55rem; padding: 4px 8px; background: var(--accent-soft); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 4px; color: var(--accent-glow); }
+        .piece-subtitle { font-size: 0.75rem; color: var(--text-muted); }
+
+        .piece-description { font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+
+        /* Parameter Sliders */
+        .params-section { margin-bottom: 20px; }
+        .section-title { font-family: 'Space Mono', monospace; font-size: 0.55rem; letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        .param-group { margin-bottom: 14px; }
+        .param-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .param-label { font-size: 0.75rem; color: var(--text-secondary); }
+        .param-value { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--accent-glow); min-width: 45px; text-align: right; }
+        
+        .param-slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: var(--bg-input); border-radius: 3px; cursor: pointer; }
+        .param-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+        .param-slider::-moz-range-thumb { width: 18px; height: 18px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+
+        /* Specs */
+        .specs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .spec-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+        .spec-label { font-size: 0.6rem; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .spec-value { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--text-primary); }
+
+        /* Actions */
+        .action-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        
+        .download-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%); border: none; border-radius: 8px; color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .download-btn:hover { box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+        .download-btn svg { width: 18px; height: 18px; }
+
+        .secondary-btn { width: 100%; padding: 12px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s ease; }
+        .secondary-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+        /* Export Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 20px; }
+        .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+        .modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; max-width: 360px; width: 100%; }
+        .modal-title { font-size: 1.1rem; margin-bottom: 6px; }
+        .modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px; }
+        .quality-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+        .quality-btn { padding: 10px 4px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-size: 0.65rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .quality-btn:hover { background: rgba(255,255,255,0.04); }
+        .quality-btn.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-glow); }
+        .quality-btn .q-name { display: block; font-weight: 500; margin-bottom: 2px; }
+        .quality-btn .q-detail { font-family: 'Space Mono', monospace; font-size: 0.55rem; opacity: 0.7; }
+        .modal-buttons { display: flex; gap: 10px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 6px; font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+        .modal-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+        .modal-btn.primary { background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%); border: none; color: white; }
+
+        /* Loading */
+        .generating-overlay { position: fixed; inset: 0; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+        .generating-overlay.visible { opacity: 1; pointer-events: auto; }
+        .gen-spinner { width: 36px; height: 36px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        .gen-text { margin-top: 16px; font-size: 0.9rem; color: var(--text-secondary); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Mobile: Hide toggle buttons, show panels inline */
+        @media (max-width: 767px) {
+            /* Allow page scroll on mobile */
+            body.viewer-active { overflow: auto; }
+            .result-view { height: auto; min-height: 100vh; overflow: visible; }
+            .viewer-section { height: 50vh; min-height: 300px; flex: none; }
+            .details-panel { max-height: none; overflow: visible; }
+            
+            .control-toggles { display: flex; }
+            .viewer-panel { 
+                position: fixed; 
+                top: auto !important; 
+                bottom: 0; 
+                left: 0; 
+                right: 0; 
+                border-radius: 16px 16px 0 0;
+                max-height: 60vh;
+                overflow-y: auto;
+            }
+            .lighting-panel { width: auto; }
+            .material-panel { width: auto; }
+            .panel-close { display: flex; }
+        }
+
+        /* Desktop */
+        @media (min-width: 768px) {
+            header { padding: 16px 24px; }
+            .brand h1 { font-size: 1.1rem; }
+            .brand-icon { width: 32px; height: 32px; }
+            .brand-icon svg { width: 16px; height: 16px; }
+            .questionnaire-intro h2 { font-size: 2.2rem; }
+            .questionnaire-view { padding: 80px 20px 40px; }
+            .questions-grid { gap: 24px; }
+            .question-block { padding: 24px; }
+            
+            .result-view { flex-direction: row; height: 100vh; overflow: hidden; }
+            .viewer-section { flex: 1; height: 100%; min-height: auto; }
+            .details-panel { width: 380px; height: 100vh; max-height: none; padding: 80px 24px 24px; overflow-y: auto; }
+            
+            /* Desktop: Always show panels, hide toggles */
+            .control-toggles { display: none; }
+            .viewer-panel { opacity: 1 !important; pointer-events: auto !important; transform: none !important; }
+            .viewer-panel.hidden { opacity: 1 !important; pointer-events: auto !important; }
+            .panel-close { display: none; }
+            .lighting-panel { top: 70px; left: 16px; width: 200px; }
+            .material-panel { top: 70px; right: 16px; }
+        }
+
+        @media (min-width: 1024px) {
+            .details-panel { width: 420px; padding: 80px 28px 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 2a10 10 0 0 1 0 20"/>
+                        <path d="M12 2a10 10 0 0 0 0 20"/>
+                    </svg>
+                </div>
+                <h1>Continuum</h1>
+            </div>
+        </header>
+
+        <section class="questionnaire-view" id="questionnaire-view">
+            <div class="questionnaire-container">
+                <div class="questionnaire-intro">
+                    <h2>Generate your<br>mathematical sculpture</h2>
+                    <p>Create unique algorithmic forms based on topology, energy, and complexity. Export as STL for 3D printing.</p>
+                </div>
+
+                <div class="questions-grid">
+                    <div class="question-block" data-question="topology">
+                        <div class="question-number">// 01 TOPOLOGY</div>
+                        <div class="question-text">Choose a base form</div>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="loop"><span class="option-icon">○</span><span class="option-label">Torus</span></button>
+                            <button class="option-btn" data-value="knot"><span class="option-icon">∞</span><span class="option-label">Knot</span></button>
+                            <button class="option-btn" data-value="twist"><span class="option-icon">◇</span><span class="option-label">Möbius</span></button>
+                            <button class="option-btn" data-value="nest"><span class="option-icon">◎</span><span class="option-label">Nested</span></button>
+                        </div>
+                    </div>
+
+                    <div class="question-block" data-question="complexity">
+                        <div class="question-number">// 02 COMPLEXITY</div>
+                        <div class="question-text">Level of intricacy</div>
+                        <div class="options-grid three-col">
+                            <button class="option-btn" data-value="minimal"><span class="option-icon">·</span><span class="option-label">Minimal</span></button>
+                            <button class="option-btn" data-value="balanced"><span class="option-icon">••</span><span class="option-label">Balanced</span></button>
+                            <button class="option-btn" data-value="intricate"><span class="option-icon">•••</span><span class="option-label">Intricate</span></button>
+                        </div>
+                    </div>
+
+                    <div class="question-block" data-question="energy">
+                        <div class="question-number">// 03 CHARACTER</div>
+                        <div class="question-text">What energy should it have?</div>
+                        <div class="options-grid">
+                            <button class="option-btn" data-value="calm"><span class="option-icon">〰</span><span class="option-label">Calm</span></button>
+                            <button class="option-btn" data-value="dynamic"><span class="option-icon">⚡</span><span class="option-label">Dynamic</span></button>
+                            <button class="option-btn" data-value="mysterious"><span class="option-icon">◈</span><span class="option-label">Mysterious</span></button>
+                            <button class="option-btn" data-value="precise"><span class="option-icon">△</span><span class="option-label">Precise</span></button>
+                        </div>
+                    </div>
+
+                    <div class="question-block" data-question="scale">
+                        <div class="question-number">// 04 SCALE</div>
+                        <div class="question-text">Print size</div>
+                        <div class="options-grid three-col">
+                            <button class="option-btn" data-value="small"><span class="option-icon">S</span><span class="option-label">~50mm</span></button>
+                            <button class="option-btn" data-value="medium"><span class="option-icon">M</span><span class="option-label">~75mm</span></button>
+                            <button class="option-btn" data-value="large"><span class="option-icon">L</span><span class="option-label">~100mm</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="generate-section">
+                    <button class="generate-btn" id="generate-btn">Generate Form</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="generating-overlay" id="generating-overlay">
+            <div class="gen-spinner"></div>
+            <div class="gen-text" id="gen-text">Generating topology...</div>
+        </div>
+
+        <div class="modal-overlay" id="export-modal">
+            <div class="modal">
+                <h3 class="modal-title">Export STL</h3>
+                <p class="modal-subtitle">Select mesh resolution</p>
+                <div class="quality-options">
+                    <button class="quality-btn" data-quality="draft"><span class="q-name">Draft</span><span class="q-detail">~10K</span></button>
+                    <button class="quality-btn selected" data-quality="normal"><span class="q-name">Normal</span><span class="q-detail">~40K</span></button>
+                    <button class="quality-btn" data-quality="high"><span class="q-name">High</span><span class="q-detail">~150K</span></button>
+                    <button class="quality-btn" data-quality="ultra"><span class="q-name">Ultra</span><span class="q-detail">~350K</span></button>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn secondary" id="export-cancel">Cancel</button>
+                    <button class="modal-btn primary" id="export-confirm">Download</button>
+                </div>
+            </div>
+        </div>
+
+        <section class="result-view" id="result-view">
+            <div class="viewer-section">
+                <div id="canvas-container"></div>
+                <div class="viewer-hint" id="viewer-hint">Drag to orbit · Scroll to zoom</div>
+
+                <!-- Mobile Toggle Buttons -->
+                <div class="control-toggles">
+                    <button class="control-toggle-btn" id="toggle-lighting" title="Lighting">
+                        <svg viewBox="0 0 24 24" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"/>
+                            <line x1="12" y1="1" x2="12" y2="3"/>
+                            <line x1="12" y1="21" x2="12" y2="23"/>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                            <line x1="1" y1="12" x2="3" y2="12"/>
+                            <line x1="21" y1="12" x2="23" y2="12"/>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                        </svg>
+                    </button>
+                    <button class="control-toggle-btn" id="toggle-material" title="Material">
+                        <svg viewBox="0 0 24 24" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a10 10 0 0 1 0 20"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Lighting Panel -->
+                <div class="viewer-panel lighting-panel hidden" id="lighting-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Lighting</span>
+                        <button class="panel-close" id="close-lighting">✕</button>
+                    </div>
+                    <div class="lighting-presets">
+                        <button class="preset-btn" data-preset="studio">Studio</button>
+                        <button class="preset-btn selected" data-preset="bright">Bright</button>
+                        <button class="preset-btn" data-preset="dramatic">Drama</button>
+                    </div>
+                    <div class="light-control">
+                        <div class="light-control-header">
+                            <span class="light-control-label">Key Light</span>
+                            <span class="light-control-value" id="key-light-val">100%</span>
+                        </div>
+                        <input type="range" class="light-slider" id="key-light" min="0" max="200" value="100">
+                    </div>
+                    <div class="light-control">
+                        <div class="light-control-header">
+                            <span class="light-control-label">Fill Light</span>
+                            <span class="light-control-value" id="fill-light-val">60%</span>
+                        </div>
+                        <input type="range" class="light-slider" id="fill-light" min="0" max="150" value="60">
+                    </div>
+                    <div class="light-control">
+                        <div class="light-control-header">
+                            <span class="light-control-label">Ambient</span>
+                            <span class="light-control-value" id="ambient-light-val">50%</span>
+                        </div>
+                        <input type="range" class="light-slider" id="ambient-light" min="0" max="150" value="50">
+                    </div>
+                    <div class="light-control">
+                        <div class="light-control-header">
+                            <span class="light-control-label">Rim Light</span>
+                            <span class="light-control-value" id="rim-light-val">80%</span>
+                        </div>
+                        <input type="range" class="light-slider" id="rim-light" min="0" max="200" value="80">
+                    </div>
+                </div>
+
+                <!-- Material Panel -->
+                <div class="viewer-panel material-panel hidden" id="material-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Material</span>
+                        <button class="panel-close" id="close-material">✕</button>
+                    </div>
+                    <div class="material-options">
+                        <button class="material-btn obsidian selected" data-material="obsidian" title="Obsidian"></button>
+                        <button class="material-btn chrome" data-material="chrome" title="Chrome"></button>
+                        <button class="material-btn gold" data-material="gold" title="Gold"></button>
+                        <button class="material-btn bronze" data-material="bronze" title="Bronze"></button>
+                        <button class="material-btn iridescent" data-material="iridescent" title="Iridescent"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-panel">
+                <div class="piece-header">
+                    <div class="piece-title">
+                        <h2 id="piece-name">Form</h2>
+                        <span class="form-tag" id="form-tag">TORUS</span>
+                    </div>
+                    <p class="piece-subtitle">Algorithmic sculpture · <span id="gen-date"></span></p>
+                </div>
+
+                <p class="piece-description" id="piece-description">A mathematical form ready for 3D printing.</p>
+
+                <!-- Parameter Sliders -->
+                <div class="params-section">
+                    <div class="section-title">Fine Tune</div>
+                    
+                    <div class="param-group" id="param-p-group">
+                        <div class="param-header">
+                            <span class="param-label">P (winds around)</span>
+                            <span class="param-value" id="param-p-val">2</span>
+                        </div>
+                        <input type="range" class="param-slider" id="param-p" min="2" max="9" step="1" value="2">
+                    </div>
+
+                    <div class="param-group" id="param-q-group">
+                        <div class="param-header">
+                            <span class="param-label">Q (winds through)</span>
+                            <span class="param-value" id="param-q-val">3</span>
+                        </div>
+                        <input type="range" class="param-slider" id="param-q" min="2" max="11" step="1" value="3">
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-header">
+                            <span class="param-label">Tube Thickness</span>
+                            <span class="param-value" id="param-tube-val">8</span>
+                        </div>
+                        <input type="range" class="param-slider" id="param-tube" min="4" max="16" step="0.5" value="8">
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-header">
+                            <span class="param-label">Wave Amount</span>
+                            <span class="param-value" id="param-wave-val">0%</span>
+                        </div>
+                        <input type="range" class="param-slider" id="param-wave" min="0" max="0.3" step="0.02" value="0">
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-header">
+                            <span class="param-label">Scale</span>
+                            <span class="param-value" id="param-scale-val">1.0×</span>
+                        </div>
+                        <input type="range" class="param-slider" id="param-scale" min="0.5" max="1.5" step="0.05" value="1">
+                    </div>
+                </div>
+
+                <!-- Specs -->
+                <div class="specs-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Dimensions</div>
+                        <div class="spec-value" id="spec-dims">— × — × —</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Vertices</div>
+                        <div class="spec-value" id="spec-verts">—</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Faces</div>
+                        <div class="spec-value" id="spec-faces">—</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Volume</div>
+                        <div class="spec-value" id="spec-volume">—</div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-buttons">
+                    <button class="download-btn" id="download-stl">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download STL
+                    </button>
+                    <button class="secondary-btn" id="restart-btn">← Generate New Form</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+
+        // Quality presets
+        const QUALITY = {
+            preview: { tubularSegments: 128, radialSegments: 24 },
+            draft:   { tubularSegments: 96,  radialSegments: 16 },
+            normal:  { tubularSegments: 200, radialSegments: 32 },
+            high:    { tubularSegments: 320, radialSegments: 48 },
+            ultra:   { tubularSegments: 500, radialSegments: 64 }
+        };
+
+        // Lighting presets
+        const LIGHT_PRESETS = {
+            studio: { key: 80, fill: 40, ambient: 35, rim: 60 },
+            bright: { key: 100, fill: 60, ambient: 50, rim: 80 },
+            dramatic: { key: 120, fill: 20, ambient: 15, rim: 150 }
+        };
+
+        // State
+        const answers = {};
+        let scene = null, camera = null, renderer = null, sculpture = null, sculptureGroup = null;
+        let keyLight = null, fillLight = null, ambientLight = null, rimLight = null;
+        let currentParams = null;
+        let currentMaterial = 'obsidian';
+        let animationId = null;
+        let exportQuality = 'normal';
+
+        // Camera
+        let cameraAngle = 0;
+        let cameraHeight = 60;
+        let targetHeight = 60;
+        let cameraDistance = 200;
+        let targetDistance = 200;
+        let isDragging = false;
+        let lastX = 0, lastY = 0;
+
+        // Materials
+        const MATERIALS = {
+            obsidian: () => new THREE.MeshStandardMaterial({ color: 0x12121a, roughness: 0.25, metalness: 0.8, envMapIntensity: 1.5 }),
+            chrome: () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.03, metalness: 1.0, envMapIntensity: 2.0 }),
+            gold: () => new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.15, metalness: 1.0, envMapIntensity: 1.5 }),
+            bronze: () => new THREE.MeshStandardMaterial({ color: 0xcd7f32, roughness: 0.28, metalness: 0.9, envMapIntensity: 1.3 }),
+            iridescent: () => new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.08, metalness: 0.9, iridescence: 1.0, iridescenceIOR: 1.8, envMapIntensity: 1.6 })
+        };
+
+        // ============================================================
+        // QUESTIONNAIRE
+        // ============================================================
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const block = btn.closest('.question-block');
+                block.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                block.classList.add('answered');
+                answers[block.dataset.question] = btn.dataset.value;
+                
+                const total = document.querySelectorAll('.question-block').length;
+                const answered = Object.keys(answers).length;
+                document.getElementById('generate-btn').classList.toggle('active', answered === total);
+            });
+        });
+
+        document.getElementById('generate-btn').addEventListener('click', () => {
+            if (!document.getElementById('generate-btn').classList.contains('active')) return;
+            
+            showOverlay('Generating topology...');
+            
+            // Calculate params first
+            currentParams = calculateParams();
+            
+            // Hide questionnaire and show result view FIRST (so container has dimensions)
+            document.getElementById('questionnaire-view').classList.add('hidden');
+            document.getElementById('result-view').classList.add('visible');
+            document.body.classList.add('viewer-active');
+            
+            // Use a longer timeout to ensure layout is complete
+            setTimeout(() => {
+                const container = document.getElementById('canvas-container');
+                
+                // Wait until container has actual dimensions
+                const checkAndInit = () => {
+                    const rect = container.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        initThreeJS();
+                        generateSculpture(currentParams, QUALITY.preview);
+                        setupControls();
+                        syncSlidersToParams();
+                        startAnimation();
+                        hideOverlay();
+                        
+                        setTimeout(() => document.getElementById('viewer-hint').classList.add('hidden'), 4000);
+                    } else {
+                        // Container not ready, try again
+                        requestAnimationFrame(checkAndInit);
+                    }
+                };
+                
+                checkAndInit();
+            }, 150);
+        });
+
+        function showOverlay(text) {
+            document.getElementById('gen-text').textContent = text;
+            document.getElementById('generating-overlay').classList.add('visible');
+        }
+
+        function hideOverlay() {
+            document.getElementById('generating-overlay').classList.remove('visible');
+        }
+
+        // ============================================================
+        // CLEANUP & RESTART
+        // ============================================================
+        function cleanupThreeJS() {
+            // Stop animation
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // Cleanup resize observer
+            cleanupResizeObserver();
+            
+            // Cleanup controls event listeners
+            if (controlsAbortController) {
+                controlsAbortController.abort();
+                controlsAbortController = null;
+            }
+
+            // Dispose sculpture
+            if (sculptureGroup) {
+                while (sculptureGroup.children.length) {
+                    const child = sculptureGroup.children[0];
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                    sculptureGroup.remove(child);
+                }
+            }
+
+            // Dispose scene
+            if (scene) {
+                scene.traverse((obj) => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) {
+                            obj.material.forEach(m => m.dispose());
+                        } else {
+                            obj.material.dispose();
+                        }
+                    }
+                });
+                if (scene.environment) scene.environment.dispose();
+            }
+
+            // Dispose renderer
+            if (renderer) {
+                renderer.dispose();
+                renderer.forceContextLoss();
+                const canvas = renderer.domElement;
+                if (canvas && canvas.parentNode) {
+                    canvas.parentNode.removeChild(canvas);
+                }
+            }
+
+            // Reset references
+            scene = null;
+            camera = null;
+            renderer = null;
+            sculpture = null;
+            sculptureGroup = null;
+            keyLight = null;
+            fillLight = null;
+            ambientLight = null;
+            rimLight = null;
+        }
+
+        function resetState() {
+            // Reset camera
+            cameraAngle = 0;
+            cameraHeight = 60;
+            targetHeight = 60;
+            cameraDistance = 200;
+            targetDistance = 200;
+            isDragging = false;
+
+            // Reset material
+            currentMaterial = 'obsidian';
+            document.querySelectorAll('.material-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelector('.material-btn.obsidian').classList.add('selected');
+
+            // Reset lighting preset and sliders
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelector('.preset-btn[data-preset="bright"]').classList.add('selected');
+            
+            // Reset lighting slider values to "bright" preset
+            document.getElementById('key-light').value = 100;
+            document.getElementById('key-light-val').textContent = '100%';
+            document.getElementById('fill-light').value = 60;
+            document.getElementById('fill-light-val').textContent = '60%';
+            document.getElementById('ambient-light').value = 50;
+            document.getElementById('ambient-light-val').textContent = '50%';
+            document.getElementById('rim-light').value = 80;
+            document.getElementById('rim-light-val').textContent = '80%';
+
+            // Hide panels on mobile
+            document.getElementById('lighting-panel').classList.add('hidden');
+            document.getElementById('material-panel').classList.add('hidden');
+            document.getElementById('toggle-lighting').classList.remove('active');
+            document.getElementById('toggle-material').classList.remove('active');
+
+            // Show hint
+            document.getElementById('viewer-hint').classList.remove('hidden');
+        }
+
+        // ============================================================
+        // PARAMETERS
+        // ============================================================
+        function calculateParams() {
+            const params = {
+                type: 'torusKnot',
+                p: 2, q: 3,
+                radius: 30,
+                tube: 8,
+                waveAmp: 0,
+                waveFreq: 12,
+                scale: 1.0,
+                segments: 3
+            };
+
+            switch (answers.topology) {
+                case 'loop': params.type = 'torus'; break;
+                case 'knot': params.type = 'torusKnot'; params.p = 2; params.q = 3; break;
+                case 'twist': params.type = 'mobius'; break;
+                case 'nest': params.type = 'nested'; params.segments = 3; break;
+            }
+
+            switch (answers.complexity) {
+                case 'minimal':
+                    if (params.type === 'torusKnot') { params.p = 2; params.q = 3; }
+                    params.waveAmp = 0;
+                    break;
+                case 'balanced':
+                    if (params.type === 'torusKnot') { params.p = 3; params.q = 5; }
+                    params.waveAmp = 0.08;
+                    break;
+                case 'intricate':
+                    if (params.type === 'torusKnot') { params.p = 5; params.q = 8; }
+                    if (params.type === 'nested') params.segments = 5;
+                    params.waveAmp = 0.15;
+                    break;
+            }
+
+            switch (answers.energy) {
+                case 'calm': params.tube *= 1.25; break;
+                case 'dynamic': params.tube *= 0.75; if (params.type === 'torusKnot') params.q += 2; break;
+                case 'mysterious': params.waveAmp += 0.08; break;
+                case 'precise': params.waveAmp = 0; break;
+            }
+
+            switch (answers.scale) {
+                case 'small': params.scale = 0.7; break;
+                case 'medium': params.scale = 1.0; break;
+                case 'large': params.scale = 1.35; break;
+            }
+
+            if (params.type === 'torusKnot') {
+                params.q = ensureCoprime(params.p, params.q);
+            }
+
+            return params;
+        }
+
+        function ensureCoprime(p, q) {
+            const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+            while (gcd(p, q) !== 1) q++;
+            return q;
+        }
+
+        // ============================================================
+        // THREE.JS SETUP
+        // ============================================================
+        function initThreeJS() {
+            // Clean up any existing instance first
+            cleanupThreeJS();
+
+            const container = document.getElementById('canvas-container');
+            if (!container) {
+                console.error('Canvas container not found');
+                return;
+            }
+            
+            const rect = container.getBoundingClientRect();
+            const width = rect.width || container.clientWidth || window.innerWidth * 0.6;
+            const height = rect.height || container.clientHeight || 400;
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 2000);
+            updateCamera();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // Clear container and append renderer
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Environment
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmremGenerator.fromScene(createStudioEnv()).texture;
+            pmremGenerator.dispose();
+
+            // Background
+            const bgGeom = new THREE.SphereGeometry(600, 32, 32);
+            const bgMat = new THREE.ShaderMaterial({
+                side: THREE.BackSide,
+                uniforms: {
+                    colorTop: { value: new THREE.Color(0x1a1a20) },
+                    colorBottom: { value: new THREE.Color(0x0a0a0c) }
+                },
+                vertexShader: `varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                fragmentShader: `uniform vec3 colorTop, colorBottom; varying vec3 vPos; void main() { float t = (normalize(vPos).y + 1.0) * 0.5; gl_FragColor = vec4(mix(colorBottom, colorTop, t), 1.0); }`
+            });
+            scene.add(new THREE.Mesh(bgGeom, bgMat));
+
+            // Desktop surface
+            const deskGeom = new THREE.CylinderGeometry(180, 180, 6, 64);
+            const deskMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, roughness: 0.7, metalness: 0.1 });
+            const desk = new THREE.Mesh(deskGeom, deskMat);
+            desk.position.y = -3;
+            desk.receiveShadow = true;
+            scene.add(desk);
+
+            // Lighting
+            keyLight = new THREE.SpotLight(0xffffff, 3.0);
+            keyLight.position.set(120, 180, 100);
+            keyLight.angle = 0.6;
+            keyLight.penumbra = 0.5;
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.bias = -0.0001;
+            scene.add(keyLight);
+
+            fillLight = new THREE.DirectionalLight(0x8090ff, 1.2);
+            fillLight.position.set(-120, 80, 60);
+            scene.add(fillLight);
+
+            ambientLight = new THREE.AmbientLight(0x404050, 1.0);
+            scene.add(ambientLight);
+
+            rimLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            rimLight.position.set(0, 60, -150);
+            scene.add(rimLight);
+
+            const topFill = new THREE.DirectionalLight(0xffffff, 0.6);
+            topFill.position.set(0, 200, 0);
+            scene.add(topFill);
+
+            // Sculpture group
+            sculptureGroup = new THREE.Group();
+            scene.add(sculptureGroup);
+
+            // Apply default lighting
+            applyLightPreset('bright');
+
+            // Setup resize observer for reliable sizing
+            setupResizeObserver();
+
+            // Handle resize
+            window.addEventListener('resize', handleResize);
+        }
+
+        function handleResize() {
+            if (!renderer || !camera) return;
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || 400;
+            
+            if (width > 0 && height > 0) {
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            }
+        }
+
+        function createStudioEnv() {
+            const envScene = new THREE.Scene();
+            envScene.background = new THREE.Color(0x202028);
+            
+            const key = new THREE.DirectionalLight(0xffffff, 4);
+            key.position.set(5, 5, 5);
+            envScene.add(key);
+            
+            const fill = new THREE.DirectionalLight(0x8090ff, 1.5);
+            fill.position.set(-5, 2, -3);
+            envScene.add(fill);
+            
+            const rim = new THREE.DirectionalLight(0xffffff, 2);
+            rim.position.set(0, -3, -5);
+            envScene.add(rim);
+            
+            const top = new THREE.DirectionalLight(0xffffff, 2);
+            top.position.set(0, 5, 0);
+            envScene.add(top);
+            
+            envScene.add(new THREE.AmbientLight(0x404050, 1.5));
+            
+            return envScene;
+        }
+
+        function updateCamera() {
+            if (!camera) return;
+            camera.position.x = Math.cos(cameraAngle) * cameraDistance;
+            camera.position.z = Math.sin(cameraAngle) * cameraDistance;
+            camera.position.y = cameraHeight;
+            camera.lookAt(0, 35, 0);
+        }
+
+        // ============================================================
+        // LIGHTING CONTROLS
+        // ============================================================
+        function applyLightPreset(preset) {
+            const p = LIGHT_PRESETS[preset];
+            if (!p) return;
+
+            document.getElementById('key-light').value = p.key;
+            document.getElementById('key-light-val').textContent = p.key + '%';
+            document.getElementById('fill-light').value = p.fill;
+            document.getElementById('fill-light-val').textContent = p.fill + '%';
+            document.getElementById('ambient-light').value = p.ambient;
+            document.getElementById('ambient-light-val').textContent = p.ambient + '%';
+            document.getElementById('rim-light').value = p.rim;
+            document.getElementById('rim-light-val').textContent = p.rim + '%';
+
+            updateLights();
+        }
+
+        function updateLights() {
+            if (!keyLight) return;
+            const keyVal = parseInt(document.getElementById('key-light').value) / 100;
+            const fillVal = parseInt(document.getElementById('fill-light').value) / 100;
+            const ambientVal = parseInt(document.getElementById('ambient-light').value) / 100;
+            const rimVal = parseInt(document.getElementById('rim-light').value) / 100;
+
+            keyLight.intensity = 3.0 * keyVal;
+            fillLight.intensity = 1.2 * fillVal;
+            ambientLight.intensity = 1.0 * ambientVal;
+            rimLight.intensity = 2.0 * rimVal;
+        }
+
+        function setupLightingControls(signal) {
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    applyLightPreset(btn.dataset.preset);
+                }, { signal });
+            });
+
+            ['key', 'fill', 'ambient', 'rim'].forEach(light => {
+                const slider = document.getElementById(`${light}-light`);
+                const valEl = document.getElementById(`${light}-light-val`);
+                slider.addEventListener('input', () => {
+                    valEl.textContent = slider.value + '%';
+                    updateLights();
+                    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+                }, { signal });
+            });
+        }
+
+        // ============================================================
+        // MOBILE PANEL TOGGLES
+        // ============================================================
+        function setupMobileToggles(signal) {
+            const lightingPanel = document.getElementById('lighting-panel');
+            const materialPanel = document.getElementById('material-panel');
+            const toggleLighting = document.getElementById('toggle-lighting');
+            const toggleMaterial = document.getElementById('toggle-material');
+
+            toggleLighting.addEventListener('click', () => {
+                const isOpen = !lightingPanel.classList.contains('hidden');
+                lightingPanel.classList.toggle('hidden', isOpen);
+                materialPanel.classList.add('hidden');
+                toggleLighting.classList.toggle('active', !isOpen);
+                toggleMaterial.classList.remove('active');
+            }, { signal });
+
+            toggleMaterial.addEventListener('click', () => {
+                const isOpen = !materialPanel.classList.contains('hidden');
+                materialPanel.classList.toggle('hidden', isOpen);
+                lightingPanel.classList.add('hidden');
+                toggleMaterial.classList.toggle('active', !isOpen);
+                toggleLighting.classList.remove('active');
+            }, { signal });
+
+            document.getElementById('close-lighting').addEventListener('click', () => {
+                lightingPanel.classList.add('hidden');
+                toggleLighting.classList.remove('active');
+            }, { signal });
+
+            document.getElementById('close-material').addEventListener('click', () => {
+                materialPanel.classList.add('hidden');
+                toggleMaterial.classList.remove('active');
+            }, { signal });
+        }
+
+        // ============================================================
+        // SCULPTURE GENERATION
+        // ============================================================
+        function generateSculpture(params, quality) {
+            if (!sculptureGroup) return;
+
+            while (sculptureGroup.children.length) {
+                const child = sculptureGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                sculptureGroup.remove(child);
+            }
+
+            let geometry;
+            let formName = '';
+            let formTag = '';
+
+            switch (params.type) {
+                case 'torus':
+                    geometry = createModulatedTorus(params, quality);
+                    formName = 'Orbital';
+                    formTag = 'TORUS';
+                    break;
+                case 'torusKnot':
+                    geometry = createModulatedTorusKnot(params, quality);
+                    formName = `Knot ${params.p},${params.q}`;
+                    formTag = `(${params.p},${params.q}) KNOT`;
+                    break;
+                case 'mobius':
+                    geometry = createMobiusForm(params, quality);
+                    formName = 'Paradox';
+                    formTag = 'MÖBIUS';
+                    break;
+                case 'nested':
+                    geometry = createNestedRings(params, quality);
+                    formName = 'Convergence';
+                    formTag = `NESTED ×${params.segments}`;
+                    break;
+            }
+
+            geometry.scale(params.scale, params.scale, params.scale);
+            geometry.computeBoundingBox();
+            const yOffset = -geometry.boundingBox.min.y;
+            geometry.translate(0, yOffset, 0);
+            geometry.computeVertexNormals();
+
+            const material = MATERIALS[currentMaterial]();
+            sculpture = new THREE.Mesh(geometry, material);
+            sculpture.castShadow = true;
+            sculpture.receiveShadow = true;
+            sculptureGroup.add(sculpture);
+
+            updateUI(params, geometry, formName, formTag);
+        }
+
+        function createModulatedTorus(params, quality) {
+            const { radius, tube, waveAmp, waveFreq } = params;
+            const geometry = new THREE.TorusGeometry(radius, tube, quality.radialSegments, quality.tubularSegments);
+            
+            if (waveAmp > 0) {
+                const pos = geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                    const theta = Math.atan2(z, x);
+                    const phi = Math.atan2(y, Math.sqrt(x*x + z*z) - radius);
+                    const wave = 1 + waveAmp * Math.sin(waveFreq * theta) * Math.cos(waveFreq * phi);
+                    pos.setXYZ(i, x * wave, y * wave, z * wave);
+                }
+            }
+            return geometry;
+        }
+
+        function createModulatedTorusKnot(params, quality) {
+            const { p, q, radius, tube, waveAmp, waveFreq } = params;
+            const geometry = new THREE.TorusKnotGeometry(radius, tube, quality.tubularSegments, quality.radialSegments, p, q);
+
+            if (waveAmp > 0) {
+                const pos = geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                    const theta = Math.atan2(z, x);
+                    const wave = 1 + waveAmp * Math.sin(waveFreq * theta);
+                    pos.setXYZ(i, x * wave, y * wave, z * wave);
+                }
+            }
+            return geometry;
+        }
+
+        function createMobiusForm(params, quality) {
+            const { radius, tube, waveAmp, waveFreq } = params;
+            const segments = quality.tubularSegments;
+            const radialSegs = quality.radialSegments;
+
+            const positions = [];
+            const indices = [];
+
+            for (let i = 0; i <= segments; i++) {
+                const u = (i / segments) * Math.PI * 2;
+                
+                for (let j = 0; j <= radialSegs; j++) {
+                    const v = (j / radialSegs) * Math.PI * 2;
+                    const halfTwist = 0.5 * u;
+                    
+                    const x = (radius + tube * Math.cos(v) * Math.cos(halfTwist)) * Math.cos(u);
+                    const y = tube * Math.cos(v) * Math.sin(halfTwist);
+                    const z = (radius + tube * Math.cos(v) * Math.cos(halfTwist)) * Math.sin(u);
+
+                    const wave = waveAmp > 0 ? (1 + waveAmp * Math.sin(waveFreq * u)) : 1;
+                    positions.push(x * wave, y * wave, z * wave);
+
+                    if (i < segments && j < radialSegs) {
+                        const a = i * (radialSegs + 1) + j;
+                        indices.push(a, a + 1, a + radialSegs + 2, a, a + radialSegs + 2, a + radialSegs + 1);
+                    }
+                }
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        function createNestedRings(params, quality) {
+            const { radius, tube, segments: ringCount, waveAmp, waveFreq } = params;
+            const geometries = [];
+
+            for (let i = 0; i < ringCount; i++) {
+                const angle = (i / ringCount) * Math.PI;
+                const ringRadius = radius * (0.8 + i * 0.12);
+                const ringTube = tube * (1 - i * 0.08);
+
+                let ringGeom = new THREE.TorusGeometry(ringRadius, ringTube, quality.radialSegments, quality.tubularSegments);
+
+                const matrix = new THREE.Matrix4().makeRotationX(angle);
+                if (i % 2 === 1) matrix.multiply(new THREE.Matrix4().makeRotationY(Math.PI / ringCount));
+                ringGeom.applyMatrix4(matrix);
+
+                if (waveAmp > 0) {
+                    const pos = ringGeom.attributes.position;
+                    for (let j = 0; j < pos.count; j++) {
+                        const x = pos.getX(j), y = pos.getY(j), z = pos.getZ(j);
+                        const theta = Math.atan2(z, x);
+                        const wave = 1 + waveAmp * Math.sin(waveFreq * theta + i);
+                        pos.setXYZ(j, x * wave, y * wave, z * wave);
+                    }
+                }
+                geometries.push(ringGeom);
+            }
+
+            return mergeGeometries(geometries);
+        }
+
+        function mergeGeometries(geometries) {
+            let totalPos = 0, totalIdx = 0;
+            geometries.forEach(g => { totalPos += g.attributes.position.count * 3; totalIdx += g.index ? g.index.count : 0; });
+
+            const positions = new Float32Array(totalPos);
+            const indices = new Uint32Array(totalIdx);
+            let posOff = 0, idxOff = 0, vertOff = 0;
+
+            geometries.forEach(g => {
+                positions.set(g.attributes.position.array, posOff);
+                if (g.index) {
+                    for (let i = 0; i < g.index.count; i++) indices[idxOff + i] = g.index.array[i] + vertOff;
+                    idxOff += g.index.count;
+                }
+                posOff += g.attributes.position.array.length;
+                vertOff += g.attributes.position.count;
+                g.dispose();
+            });
+
+            const merged = new THREE.BufferGeometry();
+            merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            merged.setIndex(new THREE.BufferAttribute(indices, 1));
+            return merged;
+        }
+
+        // ============================================================
+        // UI
+        // ============================================================
+        function updateUI(params, geometry, formName, formTag) {
+            geometry.computeBoundingBox();
+            const size = new THREE.Vector3();
+            geometry.boundingBox.getSize(size);
+
+            const dims = { w: Math.round(size.x), h: Math.round(size.y), d: Math.round(size.z) };
+            const volume = (dims.w * dims.h * dims.d * 0.25) / 1000;
+            const verts = geometry.attributes.position.count;
+            const faces = geometry.index ? geometry.index.count / 3 : verts / 3;
+
+            document.getElementById('piece-name').textContent = formName;
+            document.getElementById('form-tag').textContent = formTag;
+            document.getElementById('spec-dims').textContent = `${dims.w} × ${dims.h} × ${dims.d} mm`;
+            document.getElementById('spec-verts').textContent = verts.toLocaleString();
+            document.getElementById('spec-faces').textContent = Math.round(faces).toLocaleString();
+            document.getElementById('spec-volume').textContent = `~${volume.toFixed(1)} cm³`;
+
+            const showPQ = params.type === 'torusKnot';
+            document.getElementById('param-p-group').style.display = showPQ ? 'block' : 'none';
+            document.getElementById('param-q-group').style.display = showPQ ? 'block' : 'none';
+
+            const energyDesc = { calm: 'meditative stillness', dynamic: 'kinetic tension', mysterious: 'enigmatic depth', precise: 'mathematical precision' };
+            document.getElementById('piece-description').textContent = 
+                `A ${params.type === 'torusKnot' ? `(${params.p},${params.q}) torus knot` : params.type} embodying ${energyDesc[answers.energy] || 'pure form'}. Export as STL for 3D printing in resin, PLA, or metal.`;
+
+            document.getElementById('gen-date').textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function syncSlidersToParams() {
+            document.getElementById('param-p').value = currentParams.p;
+            document.getElementById('param-p-val').textContent = currentParams.p;
+            document.getElementById('param-q').value = currentParams.q;
+            document.getElementById('param-q-val').textContent = currentParams.q;
+            document.getElementById('param-tube').value = currentParams.tube;
+            document.getElementById('param-tube-val').textContent = currentParams.tube.toFixed(1);
+            document.getElementById('param-wave').value = currentParams.waveAmp;
+            document.getElementById('param-wave-val').textContent = Math.round(currentParams.waveAmp * 100) + '%';
+            document.getElementById('param-scale').value = currentParams.scale;
+            document.getElementById('param-scale-val').textContent = currentParams.scale.toFixed(2) + '×';
+        }
+
+        function setupParamSliders(signal) {
+            const regenerate = () => generateSculpture(currentParams, QUALITY.preview);
+
+            document.getElementById('param-p').addEventListener('input', (e) => {
+                currentParams.p = parseInt(e.target.value);
+                currentParams.q = ensureCoprime(currentParams.p, currentParams.q);
+                document.getElementById('param-p-val').textContent = currentParams.p;
+                document.getElementById('param-q').value = currentParams.q;
+                document.getElementById('param-q-val').textContent = currentParams.q;
+                regenerate();
+            }, { signal });
+
+            document.getElementById('param-q').addEventListener('input', (e) => {
+                let q = parseInt(e.target.value);
+                currentParams.q = ensureCoprime(currentParams.p, q);
+                document.getElementById('param-q-val').textContent = currentParams.q;
+                e.target.value = currentParams.q;
+                regenerate();
+            }, { signal });
+
+            document.getElementById('param-tube').addEventListener('input', (e) => {
+                currentParams.tube = parseFloat(e.target.value);
+                document.getElementById('param-tube-val').textContent = currentParams.tube.toFixed(1);
+                regenerate();
+            }, { signal });
+
+            document.getElementById('param-wave').addEventListener('input', (e) => {
+                currentParams.waveAmp = parseFloat(e.target.value);
+                document.getElementById('param-wave-val').textContent = Math.round(currentParams.waveAmp * 100) + '%';
+                regenerate();
+            }, { signal });
+
+            document.getElementById('param-scale').addEventListener('input', (e) => {
+                currentParams.scale = parseFloat(e.target.value);
+                document.getElementById('param-scale-val').textContent = currentParams.scale.toFixed(2) + '×';
+                regenerate();
+            }, { signal });
+        }
+
+        // ============================================================
+        // VIEWER CONTROLS
+        // ============================================================
+        let controlsAbortController = null;
+        
+        function setupControls() {
+            // Abort any previous controllers
+            if (controlsAbortController) {
+                controlsAbortController.abort();
+            }
+            controlsAbortController = new AbortController();
+            const signal = controlsAbortController.signal;
+            
+            const canvas = document.getElementById('canvas-container');
+
+            // Mouse drag
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                document.getElementById('viewer-hint').classList.add('hidden');
+            }, { signal });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                cameraAngle -= (e.clientX - lastX) * 0.008;
+                targetHeight = Math.max(20, Math.min(180, targetHeight - (e.clientY - lastY) * 0.8));
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }, { signal });
+
+            window.addEventListener('mouseup', () => { isDragging = false; }, { signal });
+
+            // Scroll zoom
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                targetDistance = Math.max(100, Math.min(400, targetDistance + e.deltaY * 0.4));
+            }, { passive: false, signal });
+
+            // Touch
+            let lastPinchDist = 0;
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    lastX = e.touches[0].clientX;
+                    lastY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                }
+                document.getElementById('viewer-hint').classList.add('hidden');
+            }, { passive: true, signal });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isDragging) {
+                    cameraAngle -= (e.touches[0].clientX - lastX) * 0.008;
+                    targetHeight = Math.max(20, Math.min(180, targetHeight - (e.touches[0].clientY - lastY) * 0.8));
+                    lastX = e.touches[0].clientX;
+                    lastY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    targetDistance = Math.max(100, Math.min(400, targetDistance + (lastPinchDist - dist) * 0.8));
+                    lastPinchDist = dist;
+                }
+            }, { passive: false, signal });
+
+            canvas.addEventListener('touchend', () => { isDragging = false; }, { signal });
+
+            // Material selector
+            document.querySelectorAll('.material-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.material-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    currentMaterial = btn.dataset.material;
+                    if (sculpture) {
+                        sculpture.material.dispose();
+                        sculpture.material = MATERIALS[currentMaterial]();
+                    }
+                }, { signal });
+            });
+
+            setupParamSliders(signal);
+            setupLightingControls(signal);
+            setupMobileToggles(signal);
+        }
+
+        // ============================================================
+        // ANIMATION
+        // ============================================================
+        function startAnimation() {
+            // Immediate render to show something right away
+            if (renderer && scene && camera) {
+                updateCamera();
+                renderer.render(scene, camera);
+            }
+            
+            function animate() {
+                animationId = requestAnimationFrame(animate);
+
+                cameraHeight += (targetHeight - cameraHeight) * 0.08;
+                cameraDistance += (targetDistance - cameraDistance) * 0.08;
+
+                if (!isDragging) {
+                    cameraAngle += 0.002;
+                }
+
+                updateCamera();
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+            }
+            animate();
+        }
+        
+        // Use ResizeObserver for reliable container size detection
+        let resizeObserver = null;
+        function setupResizeObserver() {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+            const container = document.getElementById('canvas-container');
+            if (container && window.ResizeObserver) {
+                resizeObserver = new ResizeObserver(() => {
+                    handleResize();
+                });
+                resizeObserver.observe(container);
+            }
+        }
+        
+        function cleanupResizeObserver() {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+                resizeObserver = null;
+            }
+        }
+
+        // ============================================================
+        // EXPORT
+        // ============================================================
+        const exportModal = document.getElementById('export-modal');
+
+        document.querySelectorAll('.quality-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                exportQuality = btn.dataset.quality;
+            });
+        });
+
+        document.getElementById('download-stl').addEventListener('click', () => {
+            exportModal.classList.add('visible');
+        });
+
+        document.getElementById('export-cancel').addEventListener('click', () => {
+            exportModal.classList.remove('visible');
+        });
+
+        document.getElementById('export-confirm').addEventListener('click', async () => {
+            exportModal.classList.remove('visible');
+            showOverlay('Generating high-resolution mesh...');
+
+            await new Promise(r => setTimeout(r, 100));
+
+            // Explicitly get current values from sliders to ensure we export what's visible
+            const exportParams = {
+                type: currentParams.type,
+                p: parseInt(document.getElementById('param-p').value),
+                q: parseInt(document.getElementById('param-q').value),
+                radius: currentParams.radius,
+                tube: parseFloat(document.getElementById('param-tube').value),
+                waveAmp: parseFloat(document.getElementById('param-wave').value),
+                waveFreq: currentParams.waveFreq,
+                scale: parseFloat(document.getElementById('param-scale').value),
+                segments: currentParams.segments
+            };
+
+            // Ensure coprime for knots
+            if (exportParams.type === 'torusKnot') {
+                exportParams.q = ensureCoprime(exportParams.p, exportParams.q);
+            }
+
+            let geometry;
+            const quality = QUALITY[exportQuality];
+
+            switch (exportParams.type) {
+                case 'torus': geometry = createModulatedTorus(exportParams, quality); break;
+                case 'torusKnot': geometry = createModulatedTorusKnot(exportParams, quality); break;
+                case 'mobius': geometry = createMobiusForm(exportParams, quality); break;
+                case 'nested': geometry = createNestedRings(exportParams, quality); break;
+            }
+
+            geometry.scale(exportParams.scale, exportParams.scale, exportParams.scale);
+            geometry.computeBoundingBox();
+            geometry.translate(0, -geometry.boundingBox.min.y, 0);
+            geometry.computeVertexNormals();
+
+            const exporter = new STLExporter();
+            const stlString = exporter.parse(new THREE.Mesh(geometry), { binary: false });
+
+            const filename = `continuum-${document.getElementById('piece-name').textContent.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${exportQuality}.stl`;
+            downloadFile(stlString, filename, 'application/octet-stream');
+
+            geometry.dispose();
+            hideOverlay();
+        });
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ============================================================
+        // RESTART
+        // ============================================================
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            // Clean up Three.js
+            cleanupThreeJS();
+            resetState();
+
+            // Reset answers
+            Object.keys(answers).forEach(k => delete answers[k]);
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.question-block').forEach(b => b.classList.remove('answered'));
+            document.getElementById('generate-btn').classList.remove('active');
+            
+            // Switch views
+            document.getElementById('result-view').classList.remove('visible');
+            document.getElementById('questionnaire-view').classList.remove('hidden');
+            document.body.classList.remove('viewer-active');
+        });
+    </script>
+</body>
+</html>
