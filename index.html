@@ -291,6 +291,10 @@
                             <button class="option-btn" data-value="knot"><span class="option-icon">∞</span><span class="option-label">Knot</span></button>
                             <button class="option-btn" data-value="twist"><span class="option-icon">◇</span><span class="option-label">Möbius</span></button>
                             <button class="option-btn" data-value="nest"><span class="option-icon">◎</span><span class="option-label">Nested</span></button>
+                            <button class="option-btn" data-value="sphere"><span class="option-icon">●</span><span class="option-label">Sphere</span></button>
+                            <button class="option-btn" data-value="cube"><span class="option-icon">■</span><span class="option-label">Cube</span></button>
+                            <button class="option-btn" data-value="pyramid"><span class="option-icon">△</span><span class="option-label">Pyramid</span></button>
+                            <button class="option-btn" data-value="crystal"><span class="option-icon">◆</span><span class="option-label">Crystal</span></button>
                         </div>
                     </div>
 
@@ -470,7 +474,7 @@
                         <input type="range" class="param-slider" id="param-q" min="2" max="11" step="1" value="3">
                     </div>
 
-                    <div class="param-group">
+                    <div class="param-group" id="param-tube-group">
                         <div class="param-header">
                             <span class="param-label">Tube Thickness</span>
                             <span class="param-value" id="param-tube-val">8</span>
@@ -478,7 +482,7 @@
                         <input type="range" class="param-slider" id="param-tube" min="4" max="16" step="0.5" value="8">
                     </div>
 
-                    <div class="param-group">
+                    <div class="param-group" id="param-wave-group">
                         <div class="param-header">
                             <span class="param-label">Wave Amount</span>
                             <span class="param-value" id="param-wave-val">0%</span>
@@ -486,7 +490,7 @@
                         <input type="range" class="param-slider" id="param-wave" min="0" max="0.3" step="0.02" value="0">
                     </div>
 
-                    <div class="param-group">
+                    <div class="param-group" id="param-scale-group">
                         <div class="param-header">
                             <span class="param-label">Scale</span>
                             <span class="param-value" id="param-scale-val">1.0×</span>
@@ -759,7 +763,15 @@
                 waveAmp: 0,
                 waveFreq: 12,
                 scale: 1.0,
-                segments: 3
+                segments: 3,
+                // New params for additional shapes
+                sides: 4,           // For pyramid/crystal
+                twist: 0,           // Twist amount
+                bevel: 0,           // Edge rounding for cube
+                noiseAmp: 0,        // Surface noise for sphere
+                noiseFreq: 4,       // Noise frequency
+                height: 1.0,        // Height ratio for pyramid
+                facets: 8           // Crystal facets
             };
 
             switch (answers.topology) {
@@ -767,29 +779,62 @@
                 case 'knot': params.type = 'torusKnot'; params.p = 2; params.q = 3; break;
                 case 'twist': params.type = 'mobius'; break;
                 case 'nest': params.type = 'nested'; params.segments = 3; break;
+                case 'sphere': params.type = 'sphere'; params.radius = 35; break;
+                case 'cube': params.type = 'cube'; params.radius = 30; break;
+                case 'pyramid': params.type = 'pyramid'; params.radius = 35; params.sides = 4; break;
+                case 'crystal': params.type = 'crystal'; params.radius = 30; params.facets = 8; break;
             }
 
             switch (answers.complexity) {
                 case 'minimal':
                     if (params.type === 'torusKnot') { params.p = 2; params.q = 3; }
                     params.waveAmp = 0;
+                    params.noiseAmp = 0;
+                    params.bevel = 0.1;
+                    params.facets = 6;
                     break;
                 case 'balanced':
                     if (params.type === 'torusKnot') { params.p = 3; params.q = 5; }
                     params.waveAmp = 0.08;
+                    params.noiseAmp = 0.15;
+                    params.bevel = 0.2;
+                    params.facets = 8;
                     break;
                 case 'intricate':
                     if (params.type === 'torusKnot') { params.p = 5; params.q = 8; }
                     if (params.type === 'nested') params.segments = 5;
                     params.waveAmp = 0.15;
+                    params.noiseAmp = 0.25;
+                    params.noiseFreq = 8;
+                    params.bevel = 0.35;
+                    params.facets = 12;
                     break;
             }
 
             switch (answers.energy) {
-                case 'calm': params.tube *= 1.25; break;
-                case 'dynamic': params.tube *= 0.75; if (params.type === 'torusKnot') params.q += 2; break;
-                case 'mysterious': params.waveAmp += 0.08; break;
-                case 'precise': params.waveAmp = 0; break;
+                case 'calm': 
+                    params.tube *= 1.25; 
+                    params.twist = 0;
+                    params.height = 0.8;
+                    break;
+                case 'dynamic': 
+                    params.tube *= 0.75; 
+                    if (params.type === 'torusKnot') params.q += 2;
+                    params.twist = Math.PI / 4;
+                    params.height = 1.4;
+                    break;
+                case 'mysterious': 
+                    params.waveAmp += 0.08;
+                    params.noiseAmp += 0.1;
+                    params.twist = Math.PI / 6;
+                    params.height = 1.2;
+                    break;
+                case 'precise': 
+                    params.waveAmp = 0;
+                    params.noiseAmp = 0;
+                    params.twist = 0;
+                    params.height = 1.0;
+                    break;
             }
 
             switch (answers.scale) {
@@ -1084,6 +1129,26 @@
                     formName = 'Convergence';
                     formTag = `NESTED ×${params.segments}`;
                     break;
+                case 'sphere':
+                    geometry = createModulatedSphere(params, quality);
+                    formName = 'Orb';
+                    formTag = 'SPHERE';
+                    break;
+                case 'cube':
+                    geometry = createModulatedCube(params, quality);
+                    formName = 'Tesseract';
+                    formTag = 'CUBE';
+                    break;
+                case 'pyramid':
+                    geometry = createModulatedPyramid(params, quality);
+                    formName = 'Apex';
+                    formTag = `PYRAMID ×${params.sides}`;
+                    break;
+                case 'crystal':
+                    geometry = createCrystal(params, quality);
+                    formName = 'Shard';
+                    formTag = `CRYSTAL ×${params.facets}`;
+                    break;
             }
 
             geometry.scale(params.scale, params.scale, params.scale);
@@ -1137,30 +1202,115 @@
         function createMobiusForm(params, quality) {
             const { radius, tube, waveAmp, waveFreq } = params;
             const segments = quality.tubularSegments;
-            const radialSegs = quality.radialSegments;
+            const widthSegments = Math.max(8, Math.floor(quality.radialSegments / 2));
+            
+            // tube parameter controls the width of the strip
+            const stripWidth = tube * 2;
+            // thickness of the strip (for 3D printing)
+            const thickness = tube * 0.4;
 
             const positions = [];
             const indices = [];
-
+            
+            // Helper to calculate a point on the Möbius strip surface
+            function getMobiusPoint(u, v, offset) {
+                // u goes around the strip (0 to 2π)
+                // v goes across the width (-1 to 1)
+                // offset is for thickness (-1 for inner, 1 for outer)
+                
+                const halfTwist = u / 2;
+                
+                // Width varies with v (-stripWidth/2 to +stripWidth/2)
+                const w = v * stripWidth / 2;
+                
+                // The classic Möbius parametric equations
+                const x = (radius + w * Math.cos(halfTwist)) * Math.cos(u);
+                const z = (radius + w * Math.cos(halfTwist)) * Math.sin(u);
+                const y = w * Math.sin(halfTwist);
+                
+                // Calculate normal for thickness offset
+                // Normal is perpendicular to the surface
+                const nx = -Math.sin(halfTwist) * Math.cos(u);
+                const nz = -Math.sin(halfTwist) * Math.sin(u);
+                const ny = Math.cos(halfTwist);
+                const nLen = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+                
+                // Apply thickness offset along normal
+                const tx = x + (offset * thickness / 2) * (nx / nLen);
+                const ty = y + (offset * thickness / 2) * (ny / nLen);
+                const tz = z + (offset * thickness / 2) * (nz / nLen);
+                
+                // Apply wave modulation
+                if (waveAmp > 0) {
+                    const wave = 1 + waveAmp * Math.sin(waveFreq * u);
+                    return { x: tx * wave, y: ty * wave, z: tz * wave };
+                }
+                
+                return { x: tx, y: ty, z: tz };
+            }
+            
+            const vertsPerRow = widthSegments + 1;
+            
+            // Create outer surface
             for (let i = 0; i <= segments; i++) {
                 const u = (i / segments) * Math.PI * 2;
-                
-                for (let j = 0; j <= radialSegs; j++) {
-                    const v = (j / radialSegs) * Math.PI * 2;
-                    const halfTwist = 0.5 * u;
-                    
-                    const x = (radius + tube * Math.cos(v) * Math.cos(halfTwist)) * Math.cos(u);
-                    const y = tube * Math.cos(v) * Math.sin(halfTwist);
-                    const z = (radius + tube * Math.cos(v) * Math.cos(halfTwist)) * Math.sin(u);
-
-                    const wave = waveAmp > 0 ? (1 + waveAmp * Math.sin(waveFreq * u)) : 1;
-                    positions.push(x * wave, y * wave, z * wave);
-
-                    if (i < segments && j < radialSegs) {
-                        const a = i * (radialSegs + 1) + j;
-                        indices.push(a, a + 1, a + radialSegs + 2, a, a + radialSegs + 2, a + radialSegs + 1);
-                    }
+                for (let j = 0; j <= widthSegments; j++) {
+                    const v = (j / widthSegments) * 2 - 1; // -1 to 1
+                    const p = getMobiusPoint(u, v, 1);
+                    positions.push(p.x, p.y, p.z);
                 }
+            }
+            
+            // Create inner surface
+            const innerOffset = positions.length / 3;
+            for (let i = 0; i <= segments; i++) {
+                const u = (i / segments) * Math.PI * 2;
+                for (let j = 0; j <= widthSegments; j++) {
+                    const v = (j / widthSegments) * 2 - 1;
+                    const p = getMobiusPoint(u, v, -1);
+                    positions.push(p.x, p.y, p.z);
+                }
+            }
+            
+            // Outer surface faces
+            for (let i = 0; i < segments; i++) {
+                for (let j = 0; j < widthSegments; j++) {
+                    const a = i * vertsPerRow + j;
+                    const b = a + 1;
+                    const c = a + vertsPerRow;
+                    const d = c + 1;
+                    indices.push(a, b, d, a, d, c);
+                }
+            }
+            
+            // Inner surface faces (reversed winding)
+            for (let i = 0; i < segments; i++) {
+                for (let j = 0; j < widthSegments; j++) {
+                    const a = innerOffset + i * vertsPerRow + j;
+                    const b = a + 1;
+                    const c = a + vertsPerRow;
+                    const d = c + 1;
+                    indices.push(a, d, b, a, c, d);
+                }
+            }
+            
+            // Edge caps - connect outer and inner surfaces along the width edges
+            // Edge 1: j = 0 (one edge of the strip width)
+            for (let i = 0; i < segments; i++) {
+                const outerA = i * vertsPerRow;
+                const outerB = (i + 1) * vertsPerRow;
+                const innerA = innerOffset + i * vertsPerRow;
+                const innerB = innerOffset + (i + 1) * vertsPerRow;
+                indices.push(outerA, innerA, innerB, outerA, innerB, outerB);
+            }
+            
+            // Edge 2: j = widthSegments (other edge of the strip width)
+            for (let i = 0; i < segments; i++) {
+                const outerA = i * vertsPerRow + widthSegments;
+                const outerB = (i + 1) * vertsPerRow + widthSegments;
+                const innerA = innerOffset + i * vertsPerRow + widthSegments;
+                const innerB = innerOffset + (i + 1) * vertsPerRow + widthSegments;
+                indices.push(outerA, innerB, innerA, outerA, outerB, innerB);
             }
 
             const geometry = new THREE.BufferGeometry();
@@ -1225,6 +1375,308 @@
         }
 
         // ============================================================
+        // SPHERE - with noise/displacement
+        // ============================================================
+        function createModulatedSphere(params, quality) {
+            const { radius, noiseAmp, noiseFreq, twist } = params;
+            const segments = quality.tubularSegments;
+            const rings = quality.radialSegments;
+            
+            const geometry = new THREE.SphereGeometry(radius, segments, rings);
+            
+            // Apply noise displacement and twist
+            const pos = geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                
+                // Spherical coordinates for noise
+                const theta = Math.atan2(z, x);
+                const phi = Math.acos(y / radius);
+                
+                // Multi-octave noise for organic feel
+                let noise = 0;
+                if (noiseAmp > 0) {
+                    noise += Math.sin(noiseFreq * theta) * Math.sin(noiseFreq * phi);
+                    noise += 0.5 * Math.sin(noiseFreq * 2 * theta + 1) * Math.sin(noiseFreq * 2 * phi);
+                    noise += 0.25 * Math.sin(noiseFreq * 4 * theta + 2) * Math.cos(noiseFreq * 3 * phi);
+                    noise *= noiseAmp;
+                }
+                
+                const r = radius * (1 + noise);
+                
+                // Apply twist around Y axis based on height
+                const twistAngle = twist * (y / radius);
+                const newX = x * Math.cos(twistAngle) - z * Math.sin(twistAngle);
+                const newZ = x * Math.sin(twistAngle) + z * Math.cos(twistAngle);
+                
+                // Recalculate position with noise
+                const scale = r / radius;
+                pos.setXYZ(i, newX * scale, y * scale, newZ * scale);
+            }
+            
+            return geometry;
+        }
+
+        // ============================================================
+        // CUBE - with rounded edges and twist
+        // ============================================================
+        function createModulatedCube(params, quality) {
+            const { radius, bevel, twist, waveAmp } = params;
+            const size = radius * 1.5;
+            const segments = Math.max(1, Math.floor(quality.radialSegments / 4));
+            
+            // Use RoundedBoxGeometry concept - create with beveled edges
+            const geometry = new THREE.BoxGeometry(size, size, size, segments, segments, segments);
+            
+            const pos = geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                
+                // Rounded box: push vertices outward based on distance from center
+                if (bevel > 0) {
+                    const halfSize = size / 2;
+                    const bevelRadius = halfSize * bevel;
+                    
+                    // Normalize to unit cube
+                    const nx = x / halfSize;
+                    const ny = y / halfSize;
+                    const nz = z / halfSize;
+                    
+                    // Superellipsoid formula for rounding
+                    const power = 2 + bevel * 8; // Higher = more rounded
+                    const len = Math.pow(
+                        Math.pow(Math.abs(nx), power) + 
+                        Math.pow(Math.abs(ny), power) + 
+                        Math.pow(Math.abs(nz), power), 
+                        1/power
+                    );
+                    
+                    if (len > 0) {
+                        x = (nx / len) * halfSize;
+                        y = (ny / len) * halfSize;
+                        z = (nz / len) * halfSize;
+                    }
+                }
+                
+                // Apply twist around Y axis
+                if (twist !== 0) {
+                    const twistAngle = twist * (y / (size/2));
+                    const newX = x * Math.cos(twistAngle) - z * Math.sin(twistAngle);
+                    const newZ = x * Math.sin(twistAngle) + z * Math.cos(twistAngle);
+                    x = newX;
+                    z = newZ;
+                }
+                
+                // Wave modulation
+                if (waveAmp > 0) {
+                    const wave = 1 + waveAmp * Math.sin(4 * Math.atan2(z, x));
+                    x *= wave;
+                    z *= wave;
+                }
+                
+                pos.setXYZ(i, x, y, z);
+            }
+            
+            return geometry;
+        }
+
+        // ============================================================
+        // PYRAMID - with variable sides and twist
+        // ============================================================
+        function createModulatedPyramid(params, quality) {
+            const { radius, sides, height, twist, waveAmp } = params;
+            const pyramidHeight = radius * 2 * height;
+            const baseRadius = radius;
+            const radialSegments = Math.max(sides, 3);
+            const heightSegments = Math.max(8, Math.floor(quality.radialSegments / 2));
+            
+            const positions = [];
+            const indices = [];
+            
+            // Create layered pyramid with optional twist
+            for (let h = 0; h <= heightSegments; h++) {
+                const t = h / heightSegments;
+                const y = -pyramidHeight / 2 + t * pyramidHeight;
+                const layerRadius = baseRadius * (1 - t); // Taper to point
+                
+                // Twist increases with height
+                const layerTwist = twist * t;
+                
+                // Wave modulation on radius
+                const waveOffset = waveAmp > 0 ? waveAmp * Math.sin(t * Math.PI * 4) : 0;
+                const modulatedRadius = layerRadius * (1 + waveOffset);
+                
+                for (let s = 0; s <= radialSegments; s++) {
+                    const angle = (s / radialSegments) * Math.PI * 2 + layerTwist;
+                    
+                    let x, z;
+                    if (modulatedRadius > 0.01) {
+                        x = Math.cos(angle) * modulatedRadius;
+                        z = Math.sin(angle) * modulatedRadius;
+                    } else {
+                        x = 0;
+                        z = 0;
+                    }
+                    
+                    positions.push(x, y, z);
+                }
+            }
+            
+            // Create faces
+            const vertsPerRow = radialSegments + 1;
+            for (let h = 0; h < heightSegments; h++) {
+                for (let s = 0; s < radialSegments; s++) {
+                    const a = h * vertsPerRow + s;
+                    const b = a + 1;
+                    const c = a + vertsPerRow;
+                    const d = c + 1;
+                    
+                    indices.push(a, b, d);
+                    indices.push(a, d, c);
+                }
+            }
+            
+            // Bottom cap
+            const bottomCenter = positions.length / 3;
+            positions.push(0, -pyramidHeight / 2, 0);
+            for (let s = 0; s < radialSegments; s++) {
+                indices.push(bottomCenter, s + 1, s);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
+        // CRYSTAL - double-terminated with facets
+        // ============================================================
+        function createCrystal(params, quality) {
+            const { radius, facets, height, twist, waveAmp } = params;
+            const crystalHeight = radius * 2.5 * height;
+            const bodyRatio = 0.5; // Middle section ratio
+            const tipRatio = (1 - bodyRatio) / 2;
+            
+            const numFacets = Math.max(4, facets);
+            const bodySegments = Math.max(4, Math.floor(quality.radialSegments / 4));
+            const tipSegments = Math.max(3, Math.floor(quality.radialSegments / 6));
+            
+            const positions = [];
+            const indices = [];
+            
+            // Bottom tip
+            const bottomTip = crystalHeight * -0.5;
+            const bodyBottom = bottomTip + crystalHeight * tipRatio;
+            const bodyTop = bodyBottom + crystalHeight * bodyRatio;
+            const topTip = crystalHeight * 0.5;
+            
+            let vertexIndex = 0;
+            
+            // Helper to add a ring of vertices
+            function addRing(y, ringRadius, twistOffset) {
+                const startIndex = vertexIndex;
+                for (let i = 0; i <= numFacets; i++) {
+                    const angle = (i / numFacets) * Math.PI * 2 + twistOffset;
+                    const wave = waveAmp > 0 ? 1 + waveAmp * Math.sin(angle * 3) : 1;
+                    const x = Math.cos(angle) * ringRadius * wave;
+                    const z = Math.sin(angle) * ringRadius * wave;
+                    positions.push(x, y, z);
+                    vertexIndex++;
+                }
+                return startIndex;
+            }
+            
+            // Bottom point
+            positions.push(0, bottomTip, 0);
+            const bottomPointIdx = vertexIndex++;
+            
+            // Bottom tip section
+            const bottomTipRings = [];
+            for (let i = 0; i <= tipSegments; i++) {
+                const t = i / tipSegments;
+                const y = bottomTip + t * (bodyBottom - bottomTip);
+                const r = t * radius;
+                const twistOff = twist * (y / crystalHeight + 0.5);
+                bottomTipRings.push(addRing(y, r, twistOff));
+            }
+            
+            // Body section
+            const bodyRings = [];
+            for (let i = 0; i <= bodySegments; i++) {
+                const t = i / bodySegments;
+                const y = bodyBottom + t * (bodyTop - bodyBottom);
+                // Slight waist in the middle
+                const waist = 1 - 0.05 * Math.sin(t * Math.PI);
+                const twistOff = twist * (y / crystalHeight + 0.5);
+                bodyRings.push(addRing(y, radius * waist, twistOff));
+            }
+            
+            // Top tip section
+            const topTipRings = [];
+            for (let i = 0; i <= tipSegments; i++) {
+                const t = i / tipSegments;
+                const y = bodyTop + t * (topTip - bodyTop);
+                const r = (1 - t) * radius;
+                const twistOff = twist * (y / crystalHeight + 0.5);
+                topTipRings.push(addRing(y, r, twistOff));
+            }
+            
+            // Top point
+            positions.push(0, topTip, 0);
+            const topPointIdx = vertexIndex++;
+            
+            // Create faces for bottom tip cone
+            for (let i = 0; i < numFacets; i++) {
+                indices.push(bottomPointIdx, bottomTipRings[0] + i + 1, bottomTipRings[0] + i);
+            }
+            
+            // Faces between rings
+            function connectRings(ring1Start, ring2Start) {
+                for (let i = 0; i < numFacets; i++) {
+                    const a = ring1Start + i;
+                    const b = ring1Start + i + 1;
+                    const c = ring2Start + i;
+                    const d = ring2Start + i + 1;
+                    indices.push(a, b, d);
+                    indices.push(a, d, c);
+                }
+            }
+            
+            // Connect bottom tip rings
+            for (let i = 0; i < bottomTipRings.length - 1; i++) {
+                connectRings(bottomTipRings[i], bottomTipRings[i + 1]);
+            }
+            
+            // Connect to body
+            connectRings(bottomTipRings[bottomTipRings.length - 1], bodyRings[0]);
+            
+            // Connect body rings
+            for (let i = 0; i < bodyRings.length - 1; i++) {
+                connectRings(bodyRings[i], bodyRings[i + 1]);
+            }
+            
+            // Connect to top tip
+            connectRings(bodyRings[bodyRings.length - 1], topTipRings[0]);
+            
+            // Connect top tip rings
+            for (let i = 0; i < topTipRings.length - 1; i++) {
+                connectRings(topTipRings[i], topTipRings[i + 1]);
+            }
+            
+            // Top tip cone
+            const lastRing = topTipRings[topTipRings.length - 1];
+            for (let i = 0; i < numFacets; i++) {
+                indices.push(topPointIdx, lastRing + i, lastRing + i + 1);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
         // UI
         // ============================================================
         function updateUI(params, geometry, formName, formTag) {
@@ -1244,13 +1696,49 @@
             document.getElementById('spec-faces').textContent = Math.round(faces).toLocaleString();
             document.getElementById('spec-volume').textContent = `~${volume.toFixed(1)} cm³`;
 
+            // Show/hide sliders based on shape type
             const showPQ = params.type === 'torusKnot';
+            const showTube = ['torus', 'torusKnot', 'mobius', 'nested'].includes(params.type);
+            const showWave = ['torus', 'torusKnot', 'mobius', 'nested', 'cube', 'pyramid', 'crystal'].includes(params.type);
+            
             document.getElementById('param-p-group').style.display = showPQ ? 'block' : 'none';
             document.getElementById('param-q-group').style.display = showPQ ? 'block' : 'none';
+            document.getElementById('param-tube-group').style.display = showTube ? 'block' : 'none';
+            document.getElementById('param-wave-group').style.display = showWave ? 'block' : 'none';
 
-            const energyDesc = { calm: 'meditative stillness', dynamic: 'kinetic tension', mysterious: 'enigmatic depth', precise: 'mathematical precision' };
+            // Update wave label based on shape
+            const waveLabel = document.querySelector('#param-wave-group .param-label');
+            if (waveLabel) {
+                if (params.type === 'sphere') {
+                    waveLabel.textContent = 'Surface Noise';
+                } else if (params.type === 'cube') {
+                    waveLabel.textContent = 'Wave Distortion';
+                } else {
+                    waveLabel.textContent = 'Wave Amount';
+                }
+            }
+
+            // Description based on type
+            const typeDescriptions = {
+                torus: 'A torus',
+                torusKnot: `A (${params.p},${params.q}) torus knot`,
+                mobius: 'A Möbius strip',
+                nested: 'Interlocking rings',
+                sphere: 'A displaced sphere',
+                cube: 'A superquadric cube',
+                pyramid: `A ${params.sides}-sided pyramid`,
+                crystal: `A ${params.facets}-facet crystal`
+            };
+            
+            const energyDesc = { 
+                calm: 'meditative stillness', 
+                dynamic: 'kinetic tension', 
+                mysterious: 'enigmatic depth', 
+                precise: 'mathematical precision' 
+            };
+            
             document.getElementById('piece-description').textContent = 
-                `A ${params.type === 'torusKnot' ? `(${params.p},${params.q}) torus knot` : params.type} embodying ${energyDesc[answers.energy] || 'pure form'}. Export as STL for 3D printing in resin, PLA, or metal.`;
+                `${typeDescriptions[params.type] || 'A form'} embodying ${energyDesc[answers.energy] || 'pure form'}. Export as STL for 3D printing in resin, PLA, or metal.`;
 
             document.getElementById('gen-date').textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
@@ -1480,7 +1968,15 @@
                 waveAmp: parseFloat(document.getElementById('param-wave').value),
                 waveFreq: currentParams.waveFreq,
                 scale: parseFloat(document.getElementById('param-scale').value),
-                segments: currentParams.segments
+                segments: currentParams.segments,
+                // New params
+                sides: currentParams.sides,
+                twist: currentParams.twist,
+                bevel: currentParams.bevel,
+                noiseAmp: currentParams.noiseAmp,
+                noiseFreq: currentParams.noiseFreq,
+                height: currentParams.height,
+                facets: currentParams.facets
             };
 
             // Ensure coprime for knots
@@ -1496,6 +1992,10 @@
                 case 'torusKnot': geometry = createModulatedTorusKnot(exportParams, quality); break;
                 case 'mobius': geometry = createMobiusForm(exportParams, quality); break;
                 case 'nested': geometry = createNestedRings(exportParams, quality); break;
+                case 'sphere': geometry = createModulatedSphere(exportParams, quality); break;
+                case 'cube': geometry = createModulatedCube(exportParams, quality); break;
+                case 'pyramid': geometry = createModulatedPyramid(exportParams, quality); break;
+                case 'crystal': geometry = createCrystal(exportParams, quality); break;
             }
 
             geometry.scale(exportParams.scale, exportParams.scale, exportParams.scale);
