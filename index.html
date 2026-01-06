@@ -73,8 +73,13 @@
 
         .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .options-grid.three-col { grid-template-columns: repeat(3, 1fr); }
+        .options-grid.four-col { grid-template-columns: repeat(4, 1fr); }
         
-        .option-btn { padding: 12px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; min-height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+        @media (max-width: 500px) {
+            .options-grid.four-col { grid-template-columns: repeat(3, 1fr); }
+        }
+        
+        .option-btn { padding: 10px 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; cursor: pointer; transition: all 0.2s ease; text-align: center; min-height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
         .option-btn:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.15); color: var(--text-primary); }
         .option-btn.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-glow); }
         .option-btn .option-icon { font-size: 1.1rem; }
@@ -286,7 +291,7 @@
                     <div class="question-block" data-question="topology">
                         <div class="question-number">// 01 TOPOLOGY</div>
                         <div class="question-text">Choose a base form</div>
-                        <div class="options-grid">
+                        <div class="options-grid four-col">
                             <button class="option-btn" data-value="loop"><span class="option-icon">○</span><span class="option-label">Torus</span></button>
                             <button class="option-btn" data-value="knot"><span class="option-icon">∞</span><span class="option-label">Knot</span></button>
                             <button class="option-btn" data-value="twist"><span class="option-icon">◇</span><span class="option-label">Möbius</span></button>
@@ -295,6 +300,10 @@
                             <button class="option-btn" data-value="cube"><span class="option-icon">■</span><span class="option-label">Cube</span></button>
                             <button class="option-btn" data-value="pyramid"><span class="option-icon">△</span><span class="option-label">Pyramid</span></button>
                             <button class="option-btn" data-value="crystal"><span class="option-icon">◆</span><span class="option-label">Crystal</span></button>
+                            <button class="option-btn" data-value="gyroid"><span class="option-icon">≋</span><span class="option-label">Gyroid</span></button>
+                            <button class="option-btn" data-value="menger"><span class="option-icon">⊞</span><span class="option-label">Menger</span></button>
+                            <button class="option-btn" data-value="nautilus"><span class="option-icon">@</span><span class="option-label">Nautilus</span></button>
+                            <button class="option-btn" data-value="stellated"><span class="option-icon">✦</span><span class="option-label">Stellated</span></button>
                         </div>
                     </div>
 
@@ -771,7 +780,14 @@
                 noiseAmp: 0,        // Surface noise for sphere
                 noiseFreq: 4,       // Noise frequency
                 height: 1.0,        // Height ratio for pyramid
-                facets: 8           // Crystal facets
+                facets: 8,          // Crystal facets
+                // New params for fractal/math shapes
+                iterations: 2,      // Menger sponge iterations
+                shellTurns: 2.5,    // Nautilus spiral turns
+                shellGrowth: 0.18,  // Nautilus growth rate
+                gyroidScale: 1.0,   // Gyroid period scale
+                gyroidThickness: 0.6, // Gyroid wall thickness (increased for visibility)
+                stellationHeight: 1.5 // How far stars extend
             };
 
             switch (answers.topology) {
@@ -783,6 +799,10 @@
                 case 'cube': params.type = 'cube'; params.radius = 30; break;
                 case 'pyramid': params.type = 'pyramid'; params.radius = 35; params.sides = 4; break;
                 case 'crystal': params.type = 'crystal'; params.radius = 30; params.facets = 8; break;
+                case 'gyroid': params.type = 'gyroid'; params.radius = 35; params.gyroidThickness = 0.6; params.gyroidScale = 1.0; break;
+                case 'menger': params.type = 'menger'; params.radius = 35; params.iterations = 2; break;
+                case 'nautilus': params.type = 'nautilus'; params.radius = 25; break;
+                case 'stellated': params.type = 'stellated'; params.radius = 30; break;
             }
 
             switch (answers.complexity) {
@@ -792,6 +812,10 @@
                     params.noiseAmp = 0;
                     params.bevel = 0.1;
                     params.facets = 6;
+                    params.iterations = 1;
+                    params.shellTurns = 1.5;
+                    params.gyroidThickness = 0.7;
+                    params.stellationHeight = 1.2;
                     break;
                 case 'balanced':
                     if (params.type === 'torusKnot') { params.p = 3; params.q = 5; }
@@ -799,6 +823,10 @@
                     params.noiseAmp = 0.15;
                     params.bevel = 0.2;
                     params.facets = 8;
+                    params.iterations = 2;
+                    params.shellTurns = 2.5;
+                    params.gyroidThickness = 0.6;
+                    params.stellationHeight = 1.5;
                     break;
                 case 'intricate':
                     if (params.type === 'torusKnot') { params.p = 5; params.q = 8; }
@@ -808,6 +836,10 @@
                     params.noiseFreq = 8;
                     params.bevel = 0.35;
                     params.facets = 12;
+                    params.iterations = 3;
+                    params.shellTurns = 3.5;
+                    params.gyroidThickness = 0.45;
+                    params.stellationHeight = 2.0;
                     break;
             }
 
@@ -816,24 +848,32 @@
                     params.tube *= 1.25; 
                     params.twist = 0;
                     params.height = 0.8;
+                    params.shellGrowth = 0.15;
+                    params.gyroidScale = 0.8;
                     break;
                 case 'dynamic': 
                     params.tube *= 0.75; 
                     if (params.type === 'torusKnot') params.q += 2;
                     params.twist = Math.PI / 4;
                     params.height = 1.4;
+                    params.shellGrowth = 0.22;
+                    params.gyroidScale = 1.2;
+                    params.stellationHeight *= 1.3;
                     break;
                 case 'mysterious': 
                     params.waveAmp += 0.08;
                     params.noiseAmp += 0.1;
                     params.twist = Math.PI / 6;
                     params.height = 1.2;
+                    params.shellGrowth = 0.2;
                     break;
                 case 'precise': 
                     params.waveAmp = 0;
                     params.noiseAmp = 0;
                     params.twist = 0;
                     params.height = 1.0;
+                    params.shellGrowth = 0.18;
+                    params.gyroidScale = 1.0;
                     break;
             }
 
@@ -1148,6 +1188,26 @@
                     geometry = createCrystal(params, quality);
                     formName = 'Shard';
                     formTag = `CRYSTAL ×${params.facets}`;
+                    break;
+                case 'gyroid':
+                    geometry = createGyroid(params, quality);
+                    formName = 'Labyrinth';
+                    formTag = 'GYROID';
+                    break;
+                case 'menger':
+                    geometry = createMengerSponge(params, quality);
+                    formName = 'Infinite';
+                    formTag = `MENGER L${params.iterations}`;
+                    break;
+                case 'nautilus':
+                    geometry = createNautilusShell(params, quality);
+                    formName = 'Fibonacci';
+                    formTag = 'NAUTILUS';
+                    break;
+                case 'stellated':
+                    geometry = createStellatedDodecahedron(params, quality);
+                    formName = 'Nova';
+                    formTag = 'STELLATED';
                     break;
             }
 
@@ -1677,6 +1737,417 @@
         }
 
         // ============================================================
+        // GYROID - Triply periodic minimal surface
+        // ============================================================
+        function createGyroid(params, quality) {
+            const { radius, gyroidScale, gyroidThickness } = params;
+            
+            // Resolution based on quality but capped for performance
+            const resolution = Math.min(Math.max(35, Math.floor(quality.tubularSegments / 3)), 50);
+            const size = radius * 2;
+            const step = size / resolution;
+            const halfSize = size / 2;
+            
+            // Scale for gyroid function - how many periods fit in our space
+            const periods = 2.0 * gyroidScale;
+            const funcScale = periods * Math.PI * 2 / size;
+            
+            // Threshold for surface detection
+            const threshold = gyroidThickness * 0.8;
+            
+            const positions = [];
+            const indices = [];
+            let vertIndex = 0;
+            
+            // Gyroid implicit function
+            function gyroidValue(x, y, z) {
+                const sx = x * funcScale;
+                const sy = y * funcScale;
+                const sz = z * funcScale;
+                return Math.sin(sx) * Math.cos(sy) + Math.sin(sy) * Math.cos(sz) + Math.sin(sz) * Math.cos(sx);
+            }
+            
+            // Add a cube at position
+            function addCube(cx, cy, cz, s) {
+                const hs = s * 0.48;
+                const v0 = vertIndex;
+                
+                // 8 vertices
+                positions.push(
+                    cx - hs, cy - hs, cz + hs,
+                    cx + hs, cy - hs, cz + hs,
+                    cx + hs, cy + hs, cz + hs,
+                    cx - hs, cy + hs, cz + hs,
+                    cx - hs, cy - hs, cz - hs,
+                    cx + hs, cy - hs, cz - hs,
+                    cx + hs, cy + hs, cz - hs,
+                    cx - hs, cy + hs, cz - hs
+                );
+                
+                // 6 faces with correct winding
+                indices.push(
+                    v0+0, v0+1, v0+2, v0+0, v0+2, v0+3,
+                    v0+5, v0+4, v0+7, v0+5, v0+7, v0+6,
+                    v0+3, v0+2, v0+6, v0+3, v0+6, v0+7,
+                    v0+4, v0+5, v0+1, v0+4, v0+1, v0+0,
+                    v0+1, v0+5, v0+6, v0+1, v0+6, v0+2,
+                    v0+4, v0+0, v0+3, v0+4, v0+3, v0+7
+                );
+                
+                vertIndex += 8;
+            }
+            
+            // Sample the space and add cubes where surface exists
+            for (let ix = 0; ix < resolution; ix++) {
+                const x = -halfSize + (ix + 0.5) * step;
+                for (let iy = 0; iy < resolution; iy++) {
+                    const y = -halfSize + (iy + 0.5) * step;
+                    for (let iz = 0; iz < resolution; iz++) {
+                        const z = -halfSize + (iz + 0.5) * step;
+                        
+                        // Clip to sphere
+                        const distSq = x*x + y*y + z*z;
+                        if (distSq > radius * radius * 0.85) continue;
+                        
+                        // Check if near surface
+                        const val = gyroidValue(x, y, z);
+                        if (Math.abs(val) < threshold) {
+                            addCube(x, y, z, step);
+                        }
+                    }
+                }
+            }
+            
+            if (positions.length === 0) {
+                console.warn('Gyroid: no geometry generated, using sphere fallback');
+                return new THREE.SphereGeometry(radius, 32, 24);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
+        // MENGER SPONGE - Recursive fractal
+        // ============================================================
+        function createMengerSponge(params, quality) {
+            const { radius, iterations } = params;
+            const size = radius * 2;
+            
+            // Limit iterations for performance (level 3 = 8000 cubes max)
+            const maxIter = Math.min(Math.max(1, iterations), 3);
+            
+            const positions = [];
+            const indices = [];
+            let vertIndex = 0;
+            
+            function addCube(cx, cy, cz, s) {
+                const hs = s / 2;
+                const v0 = vertIndex;
+                
+                // 8 vertices of cube
+                positions.push(
+                    cx - hs, cy - hs, cz + hs,  // 0
+                    cx + hs, cy - hs, cz + hs,  // 1
+                    cx + hs, cy + hs, cz + hs,  // 2
+                    cx - hs, cy + hs, cz + hs,  // 3
+                    cx - hs, cy - hs, cz - hs,  // 4
+                    cx + hs, cy - hs, cz - hs,  // 5
+                    cx + hs, cy + hs, cz - hs,  // 6
+                    cx - hs, cy + hs, cz - hs   // 7
+                );
+                
+                // 6 faces, CCW winding for outward normals
+                indices.push(
+                    v0+0, v0+1, v0+2, v0+0, v0+2, v0+3,  // Front (+Z)
+                    v0+5, v0+4, v0+7, v0+5, v0+7, v0+6,  // Back (-Z)
+                    v0+3, v0+2, v0+6, v0+3, v0+6, v0+7,  // Top (+Y)
+                    v0+4, v0+5, v0+1, v0+4, v0+1, v0+0,  // Bottom (-Y)
+                    v0+1, v0+5, v0+6, v0+1, v0+6, v0+2,  // Right (+X)
+                    v0+4, v0+0, v0+3, v0+4, v0+3, v0+7   // Left (-X)
+                );
+                
+                vertIndex += 8;
+            }
+            
+            function mengerRecurse(cx, cy, cz, s, level) {
+                if (level === 0) {
+                    addCube(cx, cy, cz, s);
+                    return;
+                }
+                
+                const childSize = s / 3;
+                
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            // Skip center pieces (Menger pattern)
+                            // Remove if 2+ coords are center (0)
+                            const centerCount = (dx === 0 ? 1 : 0) + (dy === 0 ? 1 : 0) + (dz === 0 ? 1 : 0);
+                            if (centerCount >= 2) continue;
+                            
+                            mengerRecurse(
+                                cx + dx * childSize,
+                                cy + dy * childSize,
+                                cz + dz * childSize,
+                                childSize,
+                                level - 1
+                            );
+                        }
+                    }
+                }
+            }
+            
+            // Generate the sponge
+            mengerRecurse(0, 0, 0, size, maxIter);
+            
+            if (positions.length === 0) {
+                console.warn('Menger: no geometry, using box fallback');
+                return new THREE.BoxGeometry(size, size, size);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
+        // NAUTILUS SHELL - Logarithmic spiral
+        // ============================================================
+        function createNautilusShell(params, quality) {
+            const { radius, shellTurns, shellGrowth, tube } = params;
+            const tubeRadius = tube * 0.8;
+            const spiralSegments = Math.floor(quality.tubularSegments * shellTurns);
+            const tubeSegments = quality.radialSegments;
+            
+            const positions = [];
+            const indices = [];
+            
+            // Logarithmic spiral: r = a * e^(b * theta)
+            const a = radius * 0.15; // Starting radius
+            const b = shellGrowth;   // Growth rate
+            
+            // Generate tube along spiral path
+            for (let i = 0; i <= spiralSegments; i++) {
+                const t = i / spiralSegments;
+                const theta = t * shellTurns * Math.PI * 2;
+                
+                // Spiral position
+                const r = a * Math.exp(b * theta);
+                const cx = r * Math.cos(theta);
+                const cz = r * Math.sin(theta);
+                const cy = 0;
+                
+                // Tube radius grows with spiral
+                const localTubeRadius = tubeRadius * (0.2 + 0.8 * t);
+                
+                // Tangent direction (derivative of spiral)
+                const dr = a * b * Math.exp(b * theta);
+                const dx = dr * Math.cos(theta) - r * Math.sin(theta);
+                const dz = dr * Math.sin(theta) + r * Math.cos(theta);
+                const len = Math.sqrt(dx * dx + dz * dz);
+                const tx = dx / len, tz = dz / len;
+                
+                // Normal (perpendicular in XZ plane)
+                const nx = -tz, nz = tx;
+                
+                // Create tube ring
+                for (let j = 0; j <= tubeSegments; j++) {
+                    const phi = (j / tubeSegments) * Math.PI * 2;
+                    
+                    // Offset from center - egg-shaped cross section
+                    const eggFactor = 1 + 0.3 * Math.cos(phi); // Wider at bottom
+                    const offX = Math.cos(phi) * localTubeRadius * eggFactor;
+                    const offY = Math.sin(phi) * localTubeRadius;
+                    
+                    // Position in world space
+                    const x = cx + offX * nx;
+                    const y = cy + offY;
+                    const z = cz + offX * nz;
+                    
+                    positions.push(x, y, z);
+                }
+            }
+            
+            // Create faces
+            const vertsPerRing = tubeSegments + 1;
+            for (let i = 0; i < spiralSegments; i++) {
+                for (let j = 0; j < tubeSegments; j++) {
+                    const a = i * vertsPerRing + j;
+                    const b = a + 1;
+                    const c = a + vertsPerRing;
+                    const d = c + 1;
+                    indices.push(a, b, d, a, d, c);
+                }
+            }
+            
+            // Cap the start (small end)
+            const startCenter = positions.length / 3;
+            const firstRingStart = 0;
+            positions.push(positions[0], positions[1], positions[2]); // Approximate center
+            for (let j = 0; j < tubeSegments; j++) {
+                indices.push(startCenter, firstRingStart + j + 1, firstRingStart + j);
+            }
+            
+            // Cap the end (large end)
+            const endCenter = positions.length / 3;
+            const lastRingStart = spiralSegments * vertsPerRing;
+            // Calculate center of last ring
+            let ecx = 0, ecy = 0, ecz = 0;
+            for (let j = 0; j < tubeSegments; j++) {
+                const idx = (lastRingStart + j) * 3;
+                ecx += positions[idx];
+                ecy += positions[idx + 1];
+                ecz += positions[idx + 2];
+            }
+            ecx /= tubeSegments; ecy /= tubeSegments; ecz /= tubeSegments;
+            positions.push(ecx, ecy, ecz);
+            
+            for (let j = 0; j < tubeSegments; j++) {
+                indices.push(endCenter, lastRingStart + j, lastRingStart + j + 1);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
+        // STELLATED DODECAHEDRON
+        // ============================================================
+        function createStellatedDodecahedron(params, quality) {
+            const { radius, stellationHeight } = params;
+            
+            const positions = [];
+            const indices = [];
+            
+            // Golden ratio
+            const phi = (1 + Math.sqrt(5)) / 2;
+            const invPhi = 1 / phi;
+            
+            // Dodecahedron vertices (normalized then scaled)
+            const rawVerts = [
+                // Cube vertices
+                [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+                [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1],
+                // Rectangle vertices
+                [0, phi, invPhi], [0, phi, -invPhi], [0, -phi, invPhi], [0, -phi, -invPhi],
+                [invPhi, 0, phi], [invPhi, 0, -phi], [-invPhi, 0, phi], [-invPhi, 0, -phi],
+                [phi, invPhi, 0], [phi, -invPhi, 0], [-phi, invPhi, 0], [-phi, -invPhi, 0]
+            ];
+            
+            // Normalize and scale vertices
+            const verts = rawVerts.map(v => {
+                const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+                return [v[0]/len * radius, v[1]/len * radius, v[2]/len * radius];
+            });
+            
+            // Dodecahedron faces (pentagons, vertex indices)
+            const faces = [
+                [0, 16, 2, 12, 14, 4, 8],  // Will be decomposed
+                [0, 8, 9, 1, 16],
+                [0, 4, 18, 5, 9, 8],
+                [1, 9, 5, 15, 13],
+                [1, 13, 3, 17, 16],
+                [2, 17, 3, 11, 10],
+                [2, 16, 17],
+                [2, 10, 6, 14, 12],
+                [4, 14, 6, 19, 18],
+                [5, 18, 19, 7, 15],
+                [3, 13, 15, 7, 11],
+                [6, 10, 11, 7, 19]
+            ];
+            
+            // Correct dodecahedron faces (12 pentagons)
+            const pentagonFaces = [
+                [0, 8, 4, 14, 12],
+                [0, 12, 2, 17, 16],
+                [0, 16, 1, 9, 8],
+                [1, 16, 17, 3, 13],
+                [1, 13, 15, 5, 9],
+                [2, 12, 14, 6, 10],
+                [2, 10, 11, 3, 17],
+                [3, 11, 7, 15, 13],
+                [4, 8, 9, 5, 18],
+                [4, 18, 19, 6, 14],
+                [5, 15, 7, 19, 18],
+                [6, 19, 7, 11, 10]
+            ];
+            
+            let vertIndex = 0;
+            
+            // For each pentagon face, create a stellated pyramid
+            pentagonFaces.forEach(face => {
+                // Calculate face center
+                let cx = 0, cy = 0, cz = 0;
+                face.forEach(vi => {
+                    cx += verts[vi][0];
+                    cy += verts[vi][1];
+                    cz += verts[vi][2];
+                });
+                cx /= face.length;
+                cy /= face.length;
+                cz /= face.length;
+                
+                // Calculate face normal (outward)
+                const v0 = verts[face[0]];
+                const v1 = verts[face[1]];
+                const v2 = verts[face[2]];
+                
+                const ax = v1[0] - v0[0], ay = v1[1] - v0[1], az = v1[2] - v0[2];
+                const bx = v2[0] - v0[0], by = v2[1] - v0[1], bz = v2[2] - v0[2];
+                
+                let nx = ay * bz - az * by;
+                let ny = az * bx - ax * bz;
+                let nz = ax * by - ay * bx;
+                const nLen = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                nx /= nLen; ny /= nLen; nz /= nLen;
+                
+                // Make sure normal points outward (away from origin)
+                if (cx * nx + cy * ny + cz * nz < 0) {
+                    nx = -nx; ny = -ny; nz = -nz;
+                }
+                
+                // Star point (apex of pyramid)
+                const starDist = radius * stellationHeight;
+                const apex = [cx + nx * starDist, cy + ny * starDist, cz + nz * starDist];
+                
+                // Add apex vertex
+                const apexIndex = vertIndex;
+                positions.push(apex[0], apex[1], apex[2]);
+                vertIndex++;
+                
+                // Add face vertices and create triangles
+                const faceVertIndices = [];
+                face.forEach(vi => {
+                    positions.push(verts[vi][0], verts[vi][1], verts[vi][2]);
+                    faceVertIndices.push(vertIndex);
+                    vertIndex++;
+                });
+                
+                // Create triangular faces from each edge to apex
+                for (let i = 0; i < face.length; i++) {
+                    const next = (i + 1) % face.length;
+                    indices.push(apexIndex, faceVertIndices[i], faceVertIndices[next]);
+                }
+                
+                // Create base pentagon (facing inward)
+                for (let i = 1; i < face.length - 1; i++) {
+                    indices.push(faceVertIndices[0], faceVertIndices[i + 1], faceVertIndices[i]);
+                }
+            });
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            return geometry;
+        }
+
+        // ============================================================
         // UI
         // ============================================================
         function updateUI(params, geometry, formName, formTag) {
@@ -1698,7 +2169,7 @@
 
             // Show/hide sliders based on shape type
             const showPQ = params.type === 'torusKnot';
-            const showTube = ['torus', 'torusKnot', 'mobius', 'nested'].includes(params.type);
+            const showTube = ['torus', 'torusKnot', 'mobius', 'nested', 'nautilus'].includes(params.type);
             const showWave = ['torus', 'torusKnot', 'mobius', 'nested', 'cube', 'pyramid', 'crystal'].includes(params.type);
             
             document.getElementById('param-p-group').style.display = showPQ ? 'block' : 'none';
@@ -1717,6 +2188,16 @@
                     waveLabel.textContent = 'Wave Amount';
                 }
             }
+            
+            // Update tube label for nautilus
+            const tubeLabel = document.querySelector('#param-tube-group .param-label');
+            if (tubeLabel) {
+                if (params.type === 'nautilus') {
+                    tubeLabel.textContent = 'Shell Thickness';
+                } else {
+                    tubeLabel.textContent = 'Tube Thickness';
+                }
+            }
 
             // Description based on type
             const typeDescriptions = {
@@ -1727,7 +2208,11 @@
                 sphere: 'A displaced sphere',
                 cube: 'A superquadric cube',
                 pyramid: `A ${params.sides}-sided pyramid`,
-                crystal: `A ${params.facets}-facet crystal`
+                crystal: `A ${params.facets}-facet crystal`,
+                gyroid: 'A triply periodic minimal surface',
+                menger: `A level-${params.iterations} Menger sponge`,
+                nautilus: 'A logarithmic spiral shell',
+                stellated: 'A stellated dodecahedron'
             };
             
             const energyDesc = { 
@@ -1976,7 +2461,14 @@
                 noiseAmp: currentParams.noiseAmp,
                 noiseFreq: currentParams.noiseFreq,
                 height: currentParams.height,
-                facets: currentParams.facets
+                facets: currentParams.facets,
+                // Fractal/math params
+                iterations: currentParams.iterations,
+                shellTurns: currentParams.shellTurns,
+                shellGrowth: currentParams.shellGrowth,
+                gyroidScale: currentParams.gyroidScale,
+                gyroidThickness: currentParams.gyroidThickness,
+                stellationHeight: currentParams.stellationHeight
             };
 
             // Ensure coprime for knots
@@ -1996,6 +2488,10 @@
                 case 'cube': geometry = createModulatedCube(exportParams, quality); break;
                 case 'pyramid': geometry = createModulatedPyramid(exportParams, quality); break;
                 case 'crystal': geometry = createCrystal(exportParams, quality); break;
+                case 'gyroid': geometry = createGyroid(exportParams, quality); break;
+                case 'menger': geometry = createMengerSponge(exportParams, quality); break;
+                case 'nautilus': geometry = createNautilusShell(exportParams, quality); break;
+                case 'stellated': geometry = createStellatedDodecahedron(exportParams, quality); break;
             }
 
             geometry.scale(exportParams.scale, exportParams.scale, exportParams.scale);
